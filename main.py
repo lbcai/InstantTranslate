@@ -1,19 +1,54 @@
 # for GUI
-from tkinter import *
+import tkinter as tk
+from tkinter import ttk
+from ttkthemes import ThemedTk
+# for click through screen grab window
+from win32gui import SetWindowLong, GetWindowLong, SetLayeredWindowAttributes
+from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA, GWL_STYLE, WS_CAPTION, WS_THICKFRAME
+
+import ctypes
+
+GetWindowLongPtrW = ctypes.windll.user32.GetWindowLongPtrW
+SetWindowLongPtrW = ctypes.windll.user32.SetWindowLongPtrW
 
 
-class App(Frame):
+class App(ttk.Frame):
 
     def __init__(self, frame):
-        Frame.__init__(self, frame=None)
+        ttk.Frame.__init__(self, frame=None)
         horizontal_pop = int(frame.winfo_screenwidth() / 2 - (frame.winfo_reqwidth()) / 2)
         vertical_pop = int(frame.winfo_screenheight() / 2 - (frame.winfo_reqheight() / 2))
         frame.geometry('+{}+{}'.format(horizontal_pop, vertical_pop))
 
+        def move_window(event):
+            # TODO make draggable
+            frame.geometry('+{0}+{1}'.format(event.x_root, event.y_root))
+
+        def mini_window():
+            # TODO - make another window to hold down the taskbar spot
+            frame.overrideredirect(False)
+            frame.wm_state('iconic')
+
+        # Create custom window title bar to match theme.
+        frame.overrideredirect(True)
+        title_bar = ttk.Frame(frame, borderwidth=3)
+        close_button = ttk.Button(title_bar, text='X', width=2, command=frame.destroy)
+        mini_button = ttk.Button(title_bar, text='__', width=2, command=mini_window)
+        window_title = ttk.Label(title_bar, text="InstantTranslate 1.0")
+        title_bar.pack(expand=1)
+        close_button.pack(side=tk.RIGHT)
+        mini_button.pack(side=tk.RIGHT)
+        window_title.pack(side=tk.LEFT)
+        title_bar.bind('<B1-Motion>', move_window)
+
         # Add screen grab button and bind click + drag motion to it.
-        area_select_button = Button(frame, text="Select Area", command=self.screen_grab)
+        area_select_button = ttk.Button(frame, text="Select Area", command=self.screen_grab)
         area_select_button.pack()
+        # Rectangle that user will draw
         self.rect = None
+        # Screen overlay present during user draw
+        self.overlay_window = None
+        # Translate area that will remain on screen
         self.grab_window = None
 
     def screen_grab(self):
@@ -25,9 +60,15 @@ class App(Frame):
            button and dragging again.
            """
         stored_values = {'x1': 0, "y1": 0, "x2": 0, "y2": 0}
+
+        # Handle cases where user makes many grab windows or clicks button multiple times.
         if self.grab_window is not None:
             self.grab_window.destroy()
             self.grab_window = None
+
+        if self.overlay_window is not None:
+            self.overlay_window.destroy()
+            self.overlay_window = None
 
         def mouse_down(event):
             stored_values['x1'] = event.x
@@ -40,10 +81,21 @@ class App(Frame):
             cv.coords(self.rect, stored_values['x1'], stored_values['y1'], stored_values['x2'], stored_values['y2'])
 
         def mouse_up(event):
-            overlay_window.destroy()
+
+            def set_click_through(hwnd):
+                try:
+                    styles = GetWindowLong(hwnd, GWL_EXSTYLE)
+                    styles = WS_EX_LAYERED | WS_EX_TRANSPARENT
+                    SetWindowLong(hwnd, GWL_EXSTYLE, styles)
+                    SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
+                except Exception as e:
+                    print(e)
+
+            self.overlay_window.destroy()
+            self.overlay_window = None
 
             # Create window for screenshot location.
-            self.grab_window = Tk()
+            self.grab_window = tk.Toplevel(self)
             self.grab_window.overrideredirect(True)
 
             x_val = min(stored_values['x1'], stored_values['x2'])
@@ -52,32 +104,33 @@ class App(Frame):
                 stored_values['y1'] - stored_values['y2'])) + "+" + str(x_val) + "+" + str(y_val)
             self.grab_window.geometry(dimensions)
 
-            self.grab_window.attributes('-alpha', 0.05)
+            self.grab_window.attributes('-alpha', 0.1, '-topmost', True)
+            set_click_through(self.grab_window.winfo_id())
             self.grab_window.mainloop()
 
         # Create screen overlay to alert user that they are in drag mode.
-        overlay_window = Tk()
-        overlay_window.attributes('-fullscreen', True, '-alpha', 0.3)
-        overlay_window.overrideredirect(True)
+        self.overlay_window = tk.Toplevel(self)
+        self.overlay_window.attributes('-fullscreen', True, '-alpha', 0.3, '-topmost', True)
+        self.overlay_window.overrideredirect(
+            True)  # prevent window from being closed by regular means, works in Windows
 
         # Create canvas, bind left click down, drag, and release.
-        cv = Canvas(overlay_window, cursor="cross", width=overlay_window.winfo_screenwidth(),
-                    height=overlay_window.winfo_screenheight())
+        cv = tk.Canvas(self.overlay_window, cursor="cross", width=self.overlay_window.winfo_screenwidth(),
+                       height=self.overlay_window.winfo_screenheight())
         cv.bind("<ButtonPress-1>", mouse_down)
         cv.bind("<B1-Motion>", mouse_down_move)
         cv.bind("<ButtonRelease-1>", mouse_up)
         cv.pack()
 
-        overlay_window.mainloop()
+        self.overlay_window.mainloop()
 
 
 if __name__ == '__main__':
-    main_window = Tk()
+    main_window = ThemedTk(theme="equilux", background=True)
     app = App(main_window)
-
     main_window.mainloop()
-    # TODO quit/close will close all windows and exit program completely
-    # TODO drawing a screengrab window over the main window will keep main window on top
+    # TODO allow screengrab window to be clicked through
     # TODO perform screengrab on window and save image as variable every 5s
     # TODO use pytesseract to change image to text and google translate api to translate
-
+    # TODO refactor into classes
+    # TODO fix main window layout
