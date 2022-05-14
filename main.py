@@ -4,37 +4,42 @@ from tkinter import ttk
 from ttkthemes import ThemedTk
 # for click through screen grab window
 from win32gui import SetWindowLong, GetWindowLong, SetLayeredWindowAttributes
-from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA, GWL_STYLE, WS_CAPTION, WS_THICKFRAME
+from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
 
-import ctypes
-
-GetWindowLongPtrW = ctypes.windll.user32.GetWindowLongPtrW
-SetWindowLongPtrW = ctypes.windll.user32.SetWindowLongPtrW
+global title_string
 
 
-class App(ttk.Frame):
+class Root(ThemedTk):
+    """
+    Make root window default to transparent. This root window will allow the program
+    to show on the task bar despite using overrideredirect for the actual main window.
+    When the main window is minimized, it will not show on the taskbar as a result.
+    """
+    def __init__(self):
+        ThemedTk.__init__(self, theme='equilux', background=True, toplevel=True)
+        self.attributes('-alpha', 0.0)
 
-    def __init__(self, frame):
-        ttk.Frame.__init__(self, frame=None)
-        horizontal_pop = int(frame.winfo_screenwidth() / 2 - (frame.winfo_reqwidth()) / 2)
-        vertical_pop = int(frame.winfo_screenheight() / 2 - (frame.winfo_reqheight() / 2))
-        frame.geometry('+{}+{}'.format(horizontal_pop, vertical_pop))
+
+class App(tk.Toplevel):
+
+    def __init__(self, master):
+        tk.Toplevel.__init__(self, master)
+
+        horizontal_pop = int(self.winfo_screenwidth() / 2 - (self.winfo_reqwidth()) / 2)
+        vertical_pop = int(self.winfo_screenheight() / 2 - (self.winfo_reqheight() / 2))
+        self.geometry('+{}+{}'.format(horizontal_pop, vertical_pop))
+        self.attributes('-topmost', 1)
 
         def move_window(event):
             # TODO make draggable
-            frame.geometry('+{0}+{1}'.format(event.x_root, event.y_root))
-
-        def mini_window():
-            # TODO - make another window to hold down the taskbar spot
-            frame.overrideredirect(False)
-            frame.wm_state('iconic')
+            self.geometry('+{0}+{1}'.format(event.x_root, event.y_root))
 
         # Create custom window title bar to match theme.
-        frame.overrideredirect(True)
-        title_bar = ttk.Frame(frame, borderwidth=3)
-        close_button = ttk.Button(title_bar, text='X', width=2, command=frame.destroy)
-        mini_button = ttk.Button(title_bar, text='__', width=2, command=mini_window)
-        window_title = ttk.Label(title_bar, text="InstantTranslate 1.0")
+        self.overrideredirect(True)
+        title_bar = ttk.Frame(self, borderwidth=3)
+        close_button = ttk.Button(title_bar, text='X', width=1, command=self.master.destroy)  # close invisible root
+        mini_button = ttk.Button(title_bar, text='__', width=1, command=self.master.iconify)  # minimize self
+        window_title = ttk.Label(title_bar, text=title_string)
         title_bar.pack(expand=1)
         close_button.pack(side=tk.RIGHT)
         mini_button.pack(side=tk.RIGHT)
@@ -42,7 +47,7 @@ class App(ttk.Frame):
         title_bar.bind('<B1-Motion>', move_window)
 
         # Add screen grab button and bind click + drag motion to it.
-        area_select_button = ttk.Button(frame, text="Select Area", command=self.screen_grab)
+        area_select_button = ttk.Button(self, text="Select Area", command=self.screen_grab)
         area_select_button.pack()
         # Rectangle that user will draw
         self.rect = None
@@ -112,7 +117,7 @@ class App(ttk.Frame):
         self.overlay_window = tk.Toplevel(self)
         self.overlay_window.attributes('-fullscreen', True, '-alpha', 0.3, '-topmost', True)
         self.overlay_window.overrideredirect(
-            True)  # prevent window from being closed by regular means, works in Windows
+            True)  # prevent window from being closed by regular means, only guaranteed to work in Windows
 
         # Create canvas, bind left click down, drag, and release.
         cv = tk.Canvas(self.overlay_window, cursor="cross", width=self.overlay_window.winfo_screenwidth(),
@@ -126,9 +131,22 @@ class App(ttk.Frame):
 
 
 if __name__ == '__main__':
-    main_window = ThemedTk(theme="equilux", background=True)
-    app = App(main_window)
-    main_window.mainloop()
+    title_string = 'InstantTranslate 1.0'
+    root = Root()
+    root.title(title_string)
+    app = App(root)
+
+    def on_root_deiconify(event):
+        app.deiconify()
+
+    def on_root_iconify(event):
+        app.withdraw()
+
+    root.bind("<Map>", on_root_deiconify)
+    root.bind("<Unmap>", on_root_iconify)
+
+    app.mainloop()
+
     # TODO allow screengrab window to be clicked through
     # TODO perform screengrab on window and save image as variable every 5s
     # TODO use pytesseract to change image to text and google translate api to translate
