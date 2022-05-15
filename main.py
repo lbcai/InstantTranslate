@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from ttkthemes import ThemedTk
 # for click through screen grab window
-from win32gui import SetWindowLong, GetWindowLong, SetLayeredWindowAttributes
+from win32gui import SetWindowLong, GetWindowLong, SetLayeredWindowAttributes, FindWindow
 from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
 
 title_string = "InstantTranslate 1.0"
@@ -183,7 +183,7 @@ class GrabWindow(tk.Toplevel):
 
     def __init__(self, stored_values):
         tk.Toplevel.__init__(self)
-        self.overrideredirect(True)
+        self.overrideredirect(1)
 
         # Determine window location (top left corner) and dimensions.
         x_val = min(stored_values['x1'], stored_values['x2'])
@@ -192,16 +192,21 @@ class GrabWindow(tk.Toplevel):
             stored_values['y1'] - stored_values['y2'])) + "+" + str(x_val) + "+" + str(y_val)
         self.geometry(dimensions)
 
-        self.attributes('-alpha', 0.5, '-topmost', True)
-        GrabWindow.set_click_through(self)
+        # Set window transparent and add a canvas, then use set_click_through to make canvas
+        # not interactable
+        self.attributes("-alpha", 0.5)
+        self.attributes('-transparentcolor', 'white', '-topmost', 1)
+        self.config(bg='white')
+        self.cv = tk.Canvas(self, bg='white', highlightthickness=0)
+        self.cv.pack()
+        hwnd = self.cv.winfo_id()
+        GrabWindow.set_click_through(hwnd)
 
-    def set_click_through(self):
+    def set_click_through(hwnd):
         """
         Make screen grab window not interactable.
         """
         try:
-            hwnd = self.winfo_id()
-            styles = GetWindowLong(hwnd, GWL_EXSTYLE)
             styles = WS_EX_LAYERED | WS_EX_TRANSPARENT
             SetWindowLong(hwnd, GWL_EXSTYLE, styles)
             SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
@@ -212,6 +217,5 @@ class GrabWindow(tk.Toplevel):
 if __name__ == '__main__':
     root = Root()
 
-    # TODO allow screen grab window to be clicked through
     # TODO perform screen grab on window and save image as variable every 5s
     # TODO use pytesseract to change image to text and google translate api to translate
