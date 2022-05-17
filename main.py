@@ -3,10 +3,18 @@ import tkinter as tk
 from tkinter import ttk
 from ttkthemes import ThemedTk
 # for click through screen grab window
-from win32gui import SetWindowLong, GetWindowLong, SetLayeredWindowAttributes, FindWindow
+from win32gui import SetWindowLong, SetLayeredWindowAttributes
 from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
+# for image taking
+from PIL import ImageGrab
+import pytesseract as pt
+# for running image taking while keeping program running
+from time import sleep
+import threading as threading
 
 title_string = "InstantTranslate 1.0"
+# pytesseract requires tesseract exe, location provided for bundling with pyinstaller package
+pt.pytesseract.tesseract_cmd = r'Tesseract-OCR\tesseract.exe'
 
 
 class Root(ThemedTk):
@@ -41,11 +49,14 @@ class Root(ThemedTk):
 
 class App(tk.Toplevel):
     """
-    Main program window. User can press a button to initiate area select mode.
-    User can adjust opacity of select area. User can select target language.
-    User can determine if they would like the translation to appear overlaid
-    on the screen grab area or if they would like a separate window to read
-    the translation in.
+    Main program window.
+    * User can press a button to initiate area select mode.
+    * User can adjust opacity of select area.
+    * User can select target language.
+    * User can determine if they would like the translation to appear overlaid
+      on the screen grab area or if they would like a separate window to read
+      the translation in.
+    * User can set time intervals for sampling grab area.
     """
 
     def __init__(self, master):
@@ -87,6 +98,8 @@ class App(tk.Toplevel):
         self.overlay_window = None
         # Translate area that will remain on screen
         self.grab_window = None
+        # Seconds between image grab
+        self.time_interval = 5
 
     def click_window(self, event):
         """
@@ -108,6 +121,12 @@ class App(tk.Toplevel):
         and allows user to draw a rectangle.
         """
         self.overlay_window = OverlayWindow(self)
+
+    def create_grab_window(self, stored_values):
+        self.overlay_window.destroy()
+        self.grab_window = GrabWindow(stored_values, self)
+        # Create thread for the image grabbing window loop.
+        threading.Thread(target=GrabWindow.screen_grab_loop, args=self.grab_window).start()
 
 
 class OverlayWindow(tk.Toplevel):
@@ -171,8 +190,7 @@ class OverlayWindow(tk.Toplevel):
         """
         Create window for screenshot location. Close overlay window.
         """
-        self.master.grab_window = GrabWindow(self.stored_values)
-        self.destroy()
+        App.create_grab_window(self.master, self.stored_values)
 
 
 class GrabWindow(tk.Toplevel):
@@ -181,15 +199,16 @@ class GrabWindow(tk.Toplevel):
     Window remains on top of other windows and is not interactable.
     """
 
-    def __init__(self, stored_values):
-        tk.Toplevel.__init__(self)
+    def __init__(self, stored_values, master):
+        tk.Toplevel.__init__(self, master)
         self.overrideredirect(1)
 
         # Determine window location (top left corner) and dimensions.
-        x_val = min(stored_values['x1'], stored_values['x2'])
-        y_val = min(stored_values['y1'], stored_values['y2'])
-        dimensions = str(abs(stored_values['x1'] - stored_values['x2'])) + "x" + str(abs(
-            stored_values['y1'] - stored_values['y2'])) + "+" + str(x_val) + "+" + str(y_val)
+        self.x_min = min(stored_values['x1'], stored_values['x2'])
+        self.y_min = min(stored_values['y1'], stored_values['y2'])
+        self.x_width = abs(stored_values['x1'] - stored_values['x2'])
+        self.y_height = abs(stored_values['y1'] - stored_values['y2'])
+        dimensions = str(self.x_width) + "x" + str(self.y_height) + "+" + str(self.x_min) + "+" + str(self.y_min)
         self.geometry(dimensions)
 
         # Set window transparent and add a canvas, then use set_click_through to make canvas
@@ -201,6 +220,18 @@ class GrabWindow(tk.Toplevel):
         self.cv.pack()
         hwnd = self.cv.winfo_id()
         GrabWindow.set_click_through(hwnd)
+
+        img = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
+        text = pt.image_to_string(img)
+        print(text) # TODO remove
+
+    def screen_grab_loop(self):
+        while self is not None:
+            sleep(self.master.time_interval)
+            # Use pillow to grab image in screen grab box
+            img = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
+            text = pt.image_to_string(img)
+            print(text)  # TODO remove
 
     def set_click_through(hwnd):
         """
