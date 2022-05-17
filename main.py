@@ -13,6 +13,8 @@ from time import sleep
 import threading as threading
 
 title_string = "InstantTranslate 1.0"
+# Flag for screen grab thread to stop after program closes.
+stop_threads = False
 # pytesseract requires tesseract exe, location provided for bundling with pyinstaller package
 pt.pytesseract.tesseract_cmd = r'Tesseract-OCR\tesseract.exe'
 
@@ -47,6 +49,11 @@ class Root(ThemedTk):
         self.app.withdraw()
 
 
+def stop_threads_true():
+    global stop_threads
+    stop_threads = True
+
+
 class App(tk.Toplevel):
     """
     Main program window.
@@ -69,11 +76,21 @@ class App(tk.Toplevel):
         self.geometry('+{}+{}'.format(horizontal_pop, vertical_pop))
         self.attributes('-topmost', 1)
 
+        # Screen overlay present during user draw
+        self.overlay_window = None
+        # Translate area that will remain on screen
+        self.grab_window = None
+        # Seconds between image grab
+        self.time_interval = 1
+        # Thread for image grab window
+        self.t = None
+
         # Create custom window title bar to match theme.
         self.overrideredirect(True)
         title_bar = ttk.Frame(self, borderwidth=3)
         # close root to close program
-        close_button = ttk.Button(title_bar, text='X', width=1, command=self.master.destroy)
+        close_button = ttk.Button(title_bar, text='X', width=1,
+                                  command=lambda: [self.master.destroy(), stop_threads_true()])
         # minimize self through root
         mini_button = ttk.Button(title_bar, text='__', width=1, command=self.master.iconify)
         window_title = ttk.Label(title_bar, text=title_string)
@@ -93,13 +110,6 @@ class App(tk.Toplevel):
         # Add screen grab button and bind click + drag motion to it.
         area_select_button = ttk.Button(self, text="Select Area", command=self.screen_grab)
         area_select_button.pack()
-
-        # Screen overlay present during user draw
-        self.overlay_window = None
-        # Translate area that will remain on screen
-        self.grab_window = None
-        # Seconds between image grab
-        self.time_interval = 5
 
     def click_window(self, event):
         """
@@ -126,7 +136,7 @@ class App(tk.Toplevel):
         self.overlay_window.destroy()
         self.grab_window = GrabWindow(stored_values, self)
         # Create thread for the image grabbing window loop.
-        threading.Thread(target=GrabWindow.screen_grab_loop, args=self.grab_window).start()
+        self.t = threading.Thread(target=GrabWindow.screen_grab_loop, args=(self.grab_window,)).start()
 
 
 class OverlayWindow(tk.Toplevel):
@@ -201,7 +211,7 @@ class GrabWindow(tk.Toplevel):
 
     def __init__(self, stored_values, master):
         tk.Toplevel.__init__(self, master)
-        self.overrideredirect(1)
+        self.overrideredirect(True)
 
         # Determine window location (top left corner) and dimensions.
         self.x_min = min(stored_values['x1'], stored_values['x2'])
@@ -214,7 +224,7 @@ class GrabWindow(tk.Toplevel):
         # Set window transparent and add a canvas, then use set_click_through to make canvas
         # not interactable
         self.attributes("-alpha", 0.5)
-        self.attributes('-transparentcolor', 'white', '-topmost', 1)
+        self.attributes('-transparentcolor', 'white', '-topmost', True)
         self.config(bg='white')
         self.cv = tk.Canvas(self, bg='white', highlightthickness=0)
         self.cv.pack()
@@ -223,15 +233,21 @@ class GrabWindow(tk.Toplevel):
 
         img = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
         text = pt.image_to_string(img)
-        print(text) # TODO remove
+        print(text)  # TODO remove
 
     def screen_grab_loop(self):
-        while self is not None:
-            sleep(self.master.time_interval)
-            # Use pillow to grab image in screen grab box
-            img = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
-            text = pt.image_to_string(img)
-            print(text)  # TODO remove
+        try:
+            while stop_threads is False:
+                sleep(self.master.time_interval)
+                # Use pillow to grab image in screen grab box
+                self.cv.pack_forget()
+                img = \
+                    ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
+                self.cv.pack()
+                text = pt.image_to_string(img)
+                print(text)  # TODO remove
+        except RuntimeError:
+            pass
 
     def set_click_through(hwnd):
         """
@@ -248,5 +264,4 @@ class GrabWindow(tk.Toplevel):
 if __name__ == '__main__':
     root = Root()
 
-    # TODO perform screen grab on window and save image as variable every 5s
-    # TODO use pytesseract to change image to text and google translate api to translate
+    # TODO use google translate api to translate
