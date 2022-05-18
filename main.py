@@ -5,18 +5,39 @@ from ttkthemes import ThemedTk
 # for click through screen grab window
 from win32gui import SetWindowLong, SetLayeredWindowAttributes
 from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
-# for image taking
+# for image taking and text conversion
 from PIL import ImageGrab
 import pytesseract as pt
 # for running image taking while keeping program running
 from time import sleep
-import threading as threading
+from threading import Thread
+# for translation
+from googletrans import Translator, LANGUAGES
 
 title_string = "InstantTranslate 1.0"
 # Flag for screen grab thread to stop after program closes.
 stop_threads = False
 # pytesseract requires tesseract exe, location provided for bundling with pyinstaller package
 pt.pytesseract.tesseract_cmd = r'Tesseract-OCR\tesseract.exe'
+
+# List of languages (capitalized)
+language_list = list(LANGUAGES.values())
+for i in range(len(language_list)):
+    language_list[i] = language_list[i].capitalize()
+    if " " in language_list[i]:
+        broken_string = language_list[i].split()
+        if "(" in broken_string[1]:
+            broken_string[1] = broken_string[1][1::].capitalize()
+            broken_string[1] = "(" + broken_string[1]
+        else:
+            broken_string[1] = broken_string[1].capitalize()
+        fixed_string = broken_string[0] + " " + broken_string[1]
+        language_list[i] = fixed_string
+
+
+def stop_threads_true():
+    global stop_threads
+    stop_threads = True
 
 
 class Root(ThemedTk):
@@ -36,6 +57,7 @@ class Root(ThemedTk):
         self.app = App(self)
         self.app.mainloop()
 
+
     def on_root_deiconify(self, event):
         """
         Show main window if invisible root window is clicked from task bar.
@@ -47,11 +69,6 @@ class Root(ThemedTk):
         Minimize main window if invisible root window is minimized.
         """
         self.app.withdraw()
-
-
-def stop_threads_true():
-    global stop_threads
-    stop_threads = True
 
 
 class App(tk.Toplevel):
@@ -107,6 +124,17 @@ class App(tk.Toplevel):
         self.x_pos = 0
         self.y_pos = 0
 
+        # Add language choice dropdown.
+        # Color combobox dropdowns on this window to match Equilux theme.
+        self.option_add('*TCombobox*Listbox.background', '#464646')
+        self.option_add('*TCombobox*Listbox.foreground', '#a6a6a6')
+        # User-determined language to translate into
+        self.target_lang = tk.StringVar(self)
+        self.target_lang.set('English')  # default value for dropdown is English
+        language_dropdown = ttk.Combobox(self, state='readonly', textvariable=self.target_lang,
+                                         values=language_list)
+        language_dropdown.pack()
+
         # Add screen grab button and bind click + drag motion to it.
         area_select_button = ttk.Button(self, text="Select Area", command=self.screen_grab)
         area_select_button.pack()
@@ -136,7 +164,7 @@ class App(tk.Toplevel):
         self.overlay_window.destroy()
         self.grab_window = GrabWindow(stored_values, self)
         # Create thread for the image grabbing window loop.
-        self.t = threading.Thread(target=GrabWindow.screen_grab_loop, args=(self.grab_window,)).start()
+        self.t = Thread(target=GrabWindow.screen_grab_loop, args=(self.grab_window,)).start()
 
 
 class OverlayWindow(tk.Toplevel):
@@ -231,9 +259,18 @@ class GrabWindow(tk.Toplevel):
         hwnd = self.cv.winfo_id()
         GrabWindow.set_click_through(hwnd)
 
+        # Spawn a translator
+        self.trans = Translator()
+
         img = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
         text = pt.image_to_string(img)
-        print(text)  # TODO remove
+        GrabWindow.translate(self, text)
+
+    def translate(self, text):
+        if text is not None:
+            print(self.master.target_lang.get())
+            translation = self.trans.translate(text, dest=self.master.target_lang.get(), src='auto')
+            print(translation.text)
 
     def screen_grab_loop(self):
         try:
@@ -245,7 +282,7 @@ class GrabWindow(tk.Toplevel):
                     ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
                 self.cv.pack()
                 text = pt.image_to_string(img)
-                print(text)  # TODO remove
+                GrabWindow.translate(self, text)
         except RuntimeError:
             pass
 
@@ -257,8 +294,8 @@ class GrabWindow(tk.Toplevel):
             styles = WS_EX_LAYERED | WS_EX_TRANSPARENT
             SetWindowLong(hwnd, GWL_EXSTYLE, styles)
             SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
-        except Exception as e:
-            print(e)
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':
