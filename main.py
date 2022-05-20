@@ -94,6 +94,8 @@ class App(tk.Toplevel):
       on the screen grab area or if they would like a separate window to read
       the translation in.
     * User can set time intervals for sampling grab area.
+    * User can open options adjustment window to help pytesseract read text from image.
+    * User can close all windows except main window.
     """
 
     def __init__(self, master):
@@ -152,8 +154,14 @@ class App(tk.Toplevel):
         area_select_button.pack()
 
         # Add button to open settings adjustment window.
-        options_button = ttk.Button(self, text="Image Options", command=self.options_window_open)
-        options_button.pack()
+        self.options_button = ttk.Button(self, text="Image Options", command=self.options_window_open, state='disabled')
+        self.options_button.pack()
+
+    def options_button_state_change(self):
+        if self.options_button.instate(['disabled']):
+            self.options_button.config(state='normal')
+        else:
+            self.options_button.config(state='disabled')
 
     def click_window(self, event):
         """
@@ -264,6 +272,9 @@ class GrabWindow(tk.Toplevel):
         tk.Toplevel.__init__(self, master)
         self.overrideredirect(True)
 
+        # Enable options button in main app window
+        App.options_button_state_change(self.master)
+
         # Determine window location (top left corner) and dimensions.
         self.x_min = min(stored_values['x1'], stored_values['x2'])
         self.y_min = min(stored_values['y1'], stored_values['y2'])
@@ -332,34 +343,40 @@ class OptionsWindow(tk.Toplevel):
         center_window(self)
 
         # Current screen grab image
+        image_frame = ttk.Frame(self)
         img = ImageTk.PhotoImage(self.master.img)
-        xbar = ttk.Scrollbar(self, orient=tk.HORIZONTAL)
-        ybar = ttk.Scrollbar(self)
-        image_panel = tk.Canvas(self, highlightthickness=0, xscrollcommand=xbar.set, yscrollcommand=ybar.set)
+        xbar = ttk.Scrollbar(image_frame, orient=tk.HORIZONTAL)
+        ybar = ttk.Scrollbar(image_frame)
+        image_panel = tk.Canvas(image_frame, highlightthickness=0, height=self.master.img.height,
+                                width=self.master.img.width, xscrollcommand=xbar.set, yscrollcommand=ybar.set)
         xbar.config(command=image_panel.xview)
         ybar.config(command=image_panel.yview)
-        image_panel.create_image(image_panel.winfo_width()/2, image_panel.winfo_height()/2, image=img)  # TODO fix tiny image not centering
+        image_panel.create_image(image_panel.winfo_width()/2, image_panel.winfo_height()/2, image=img)
         image_panel.image = img  # Prevent garbage collection of image
 
         xbar.pack(side=tk.BOTTOM, fill=tk.X)
         ybar.pack(side=tk.RIGHT, fill=tk.Y)
 
         image_panel.config(scrollregion=image_panel.bbox(tk.ALL))
-        image_panel.pack(expand=True, fill="none")  # TODO going to have to put in loop to keep updating image
+        image_panel.pack()
+        image_frame.pack(expand=True, fill="none")
 
         buttons_frame = ttk.Frame(self)
         buttons_frame.pack()
         # Button to update settings
-        save_button = ttk.Button(buttons_frame, text="Save", command=self.destroy)  # TODO change button function
+        save_button = ttk.Button(buttons_frame, text="Save",
+                                 command=self.destroy)
+        # TODO change button function
         save_button.pack(side=tk.LEFT)
         # Button to close window
         close_button = ttk.Button(buttons_frame, text="Exit", command=self.destroy)
         close_button.pack(side=tk.RIGHT)
 
-# TODO get scroll bar under canvas and not under buttons
 # TODO when selected area is larger than allowed canvas the grab window is too small
 # TODO prevent interaction with main window while options open
-# TODO grey out button if no selected area
+# TODO limit size of options window & fix centering
+# TODO close all windows except main button
+# TODO settings in options & actual image adjustment
 
 
 if __name__ == '__main__':
