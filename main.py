@@ -6,7 +6,7 @@ from ttkthemes import ThemedTk
 from win32gui import SetWindowLong, SetLayeredWindowAttributes
 from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
 # for image taking and text conversion
-from PIL import ImageGrab
+from PIL import ImageGrab, ImageTk
 import pytesseract as pt
 # for running image taking while keeping program running
 from time import sleep
@@ -36,8 +36,21 @@ for i in range(len(language_list)):
 
 
 def stop_threads_true():
+    """
+    Exit all threads on program exit.
+    """
     global stop_threads
     stop_threads = True
+
+
+def center_window(self):
+    """
+    Spawn new window in center of screen.
+    """
+    horizontal_pop = int(self.winfo_screenwidth() / 2 - (self.winfo_reqwidth() / 2))
+    vertical_pop = int(self.winfo_screenheight() / 2 - (self.winfo_reqheight() / 2))
+    self.geometry('+{}+{}'.format(horizontal_pop, vertical_pop))
+    self.attributes('-topmost', 1)
 
 
 class Root(ThemedTk):
@@ -88,15 +101,14 @@ class App(tk.Toplevel):
         tk.Toplevel.__init__(self, master)
 
         # Make window spawn in center of screen.
-        horizontal_pop = int(self.winfo_screenwidth() / 2 - (self.winfo_reqwidth()) / 2)
-        vertical_pop = int(self.winfo_screenheight() / 2 - (self.winfo_reqheight() / 2))
-        self.geometry('+{}+{}'.format(horizontal_pop, vertical_pop))
-        self.attributes('-topmost', 1)
+        center_window(self)
 
         # Screen overlay present during user draw
         self.overlay_window = None
         # Translate area that will remain on screen
         self.grab_window = None
+        # Options window for user to adjust image settings for text reading
+        self.options_window = None
         # Seconds between image grab
         self.time_interval = 1
         # Thread for image grab window
@@ -126,7 +138,7 @@ class App(tk.Toplevel):
 
         # Add language choice dropdown.
         # Color combobox dropdowns on this window to match Equilux theme.
-        self.option_add('*TCombobox*Listbox.background', '#464646')
+        self.option_add('*TCombobox*Listbox.background', self['background'])
         self.option_add('*TCombobox*Listbox.foreground', '#a6a6a6')
         # User-determined language to translate into
         self.target_lang = tk.StringVar(self)
@@ -138,6 +150,10 @@ class App(tk.Toplevel):
         # Add screen grab button and bind click + drag motion to it.
         area_select_button = ttk.Button(self, text="Select Area", command=self.screen_grab)
         area_select_button.pack()
+
+        # Add button to open settings adjustment window.
+        options_button = ttk.Button(self, text="Image Options", command=self.options_window_open)
+        options_button.pack()
 
     def click_window(self, event):
         """
@@ -152,6 +168,13 @@ class App(tk.Toplevel):
         Allow the main window to be dragged by the title bar despite using overrideredirect.
         """
         self.geometry(f'+{event.x_root - self.x_pos}+{event.y_root - self.y_pos}')
+
+    def options_window_open(self):
+        """
+        Open window to allow user to adjust image options. Options affect whether pytesseract can process
+        text from screen grab.
+        """
+        self.options_window = OptionsWindow(self.grab_window)
 
     def screen_grab(self):
         """
@@ -262,8 +285,8 @@ class GrabWindow(tk.Toplevel):
         # Spawn a translator
         self.trans = Translator()
 
-        img = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
-        text = pt.image_to_string(img)
+        self.img = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
+        text = pt.image_to_string(self.img)
         GrabWindow.translate(self, text)
 
     def translate(self, text):
@@ -278,10 +301,10 @@ class GrabWindow(tk.Toplevel):
                 sleep(self.master.time_interval)
                 # Use pillow to grab image in screen grab box
                 self.cv.pack_forget()
-                img = \
+                self.img = \
                     ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
                 self.cv.pack()
-                text = pt.image_to_string(img)
+                text = pt.image_to_string(self.img)
                 GrabWindow.translate(self, text)
         except RuntimeError:
             pass
@@ -298,7 +321,46 @@ class GrabWindow(tk.Toplevel):
             pass
 
 
+class OptionsWindow(tk.Toplevel):
+    """
+    Window that shows user what image pytesseract is seeing for text extraction and allows
+    user to adjust settings to make text extraction easier.
+    """
+    def __init__(self, master):
+        tk.Toplevel.__init__(self, master)
+        self.overrideredirect(True)
+        center_window(self)
+
+        # Current screen grab image
+        img = ImageTk.PhotoImage(self.master.img)
+        xbar = ttk.Scrollbar(self, orient=tk.HORIZONTAL)
+        ybar = ttk.Scrollbar(self)
+        image_panel = tk.Canvas(self, highlightthickness=0, xscrollcommand=xbar.set, yscrollcommand=ybar.set)
+        xbar.config(command=image_panel.xview)
+        ybar.config(command=image_panel.yview)
+        image_panel.create_image(image_panel.winfo_width()/2, image_panel.winfo_height()/2, image=img)  # TODO fix tiny image not centering
+        image_panel.image = img  # Prevent garbage collection of image
+
+        xbar.pack(side=tk.BOTTOM, fill=tk.X)
+        ybar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        image_panel.config(scrollregion=image_panel.bbox(tk.ALL))
+        image_panel.pack(expand=True, fill="none")  # TODO going to have to put in loop to keep updating image
+
+        buttons_frame = ttk.Frame(self)
+        buttons_frame.pack()
+        # Button to update settings
+        save_button = ttk.Button(buttons_frame, text="Save", command=self.destroy)  # TODO change button function
+        save_button.pack(side=tk.LEFT)
+        # Button to close window
+        close_button = ttk.Button(buttons_frame, text="Exit", command=self.destroy)
+        close_button.pack(side=tk.RIGHT)
+
+# TODO get scroll bar under canvas and not under buttons
+# TODO when selected area is larger than allowed canvas the grab window is too small
+# TODO prevent interaction with main window while options open
+# TODO grey out button if no selected area
+
+
 if __name__ == '__main__':
     root = Root()
-
-    # TODO use google translate api to translate
