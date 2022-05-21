@@ -47,10 +47,20 @@ def center_window(self):
     """
     Spawn new window in center of screen.
     """
-    horizontal_pop = int(self.winfo_screenwidth() / 2 - (self.winfo_reqwidth() / 2))
-    vertical_pop = int(self.winfo_screenheight() / 2 - (self.winfo_reqheight() / 2))
-    self.geometry('+{}+{}'.format(horizontal_pop, vertical_pop))
-    self.attributes('-topmost', 1)
+    self.tk.eval(f'tk::PlaceWindow {self._w} center')
+    self.attributes('-topmost', True)
+
+
+def set_click_through(hwnd):
+    """
+    Make screen grab window not interactable.
+    """
+    try:
+        styles = WS_EX_LAYERED | WS_EX_TRANSPARENT
+        SetWindowLong(hwnd, GWL_EXSTYLE, styles)
+        SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
+    except Exception:
+        pass
 
 
 class Root(ThemedTk):
@@ -69,7 +79,6 @@ class Root(ThemedTk):
         self.bind("<Unmap>", lambda event: Root.on_root_iconify(self, event))
         self.app = App(self)
         self.app.mainloop()
-
 
     def on_root_deiconify(self, event):
         """
@@ -138,6 +147,12 @@ class App(tk.Toplevel):
         self.x_pos = 0
         self.y_pos = 0
 
+        # Divide the title bar space off from the main window space.
+        separator = tk.Frame(self, height=1, borderwidth=0, bg='#373737')
+        separator.pack(fill=tk.X, padx=5)
+        separator_underline = tk.Frame(self, height=1, borderwidth=0, bg='#414141')
+        separator_underline.pack(fill=tk.X, padx=5)
+
         # Add language choice dropdown.
         # Color combobox dropdowns on this window to match Equilux theme.
         self.option_add('*TCombobox*Listbox.background', self['background'])
@@ -145,20 +160,44 @@ class App(tk.Toplevel):
         # User-determined language to translate into
         self.target_lang = tk.StringVar(self)
         self.target_lang.set('English')  # default value for dropdown is English
-        language_dropdown = ttk.Combobox(self, state='readonly', textvariable=self.target_lang,
+        language_frame = ttk.Frame(self)
+        language_label = ttk.Label(language_frame, text="Translate to:")
+        language_dropdown = ttk.Combobox(language_frame, state='readonly', textvariable=self.target_lang,
                                          values=language_list)
+        language_label.pack()
         language_dropdown.pack()
+        language_frame.pack(padx=5, pady=5)
 
+        button_frame = ttk.Frame(self)
         # Add screen grab button and bind click + drag motion to it.
-        area_select_button = ttk.Button(self, text="Select Area", command=self.screen_grab)
+        area_select_button = ttk.Button(button_frame, text="Select Area", command=self.screen_grab)
         area_select_button.pack()
 
         # Add button to open settings adjustment window.
-        self.options_button = ttk.Button(self, text="Image Options", command=self.options_window_open, state='disabled')
+        self.options_button = ttk.Button(button_frame, text="Image Options", command=self.options_window_open, state='disabled')
         self.options_button.pack()
 
-    def options_button_state_change(self):
-        if self.options_button.instate(['disabled']):
+        # Close other windows button
+        close_windows_button = ttk.Button(button_frame, text="Close Windows", command=self.close_other_windows)
+        close_windows_button.pack()
+
+        button_frame.pack(padx=5, pady=5)
+
+    def close_other_windows(self):
+        """
+        From main app window, close other extra windows and close threads.
+        """
+        if self.overlay_window is not None and self.overlay_window.winfo_exists():
+            self.overlay_window.destroy()
+        if self.grab_window is not None and self.grab_window.winfo_exists():
+            self.grab_window.destroy()
+            self.options_button_disable(True)
+            self.close_thread()
+        if self.options_window is not None and self.options_window.winfo_exists():
+            self.options_window.destroy()
+
+    def options_button_disable(self, boolean):
+        if boolean is False:
             self.options_button.config(state='normal')
         else:
             self.options_button.config(state='disabled')
@@ -182,7 +221,7 @@ class App(tk.Toplevel):
         Open window to allow user to adjust image options. Options affect whether pytesseract can process
         text from screen grab.
         """
-        self.options_window = OptionsWindow(self.grab_window)
+        self.options_window = OptionsWindow(self)
 
     def screen_grab(self):
         """
@@ -191,10 +230,21 @@ class App(tk.Toplevel):
         """
         self.overlay_window = OverlayWindow(self)
 
+    def close_thread(self):
+        """
+        Close threads when main app still open.
+        """
+        if self.t is not None:
+            self.t.join()  # Prevent many loose dangling threads from window spamming.
+
     def create_grab_window(self, stored_values):
+        """
+        Create screen grab window after overlay window used to draw rectangle.
+        """
         self.overlay_window.destroy()
         self.grab_window = GrabWindow(stored_values, self)
         # Create thread for the image grabbing window loop.
+        self.close_thread()
         self.t = Thread(target=GrabWindow.screen_grab_loop, args=(self.grab_window,)).start()
 
 
@@ -273,7 +323,7 @@ class GrabWindow(tk.Toplevel):
         self.overrideredirect(True)
 
         # Enable options button in main app window
-        App.options_button_state_change(self.master)
+        App.options_button_disable(self.master, False)
 
         # Determine window location (top left corner) and dimensions.
         self.x_min = min(stored_values['x1'], stored_values['x2'])
@@ -288,10 +338,10 @@ class GrabWindow(tk.Toplevel):
         self.attributes("-alpha", 0.5)
         self.attributes('-transparentcolor', 'white', '-topmost', True)
         self.config(bg='white')
-        self.cv = tk.Canvas(self, bg='white', highlightthickness=0)
+        self.cv = tk.Canvas(self, bg='white', highlightthickness=0, width=self.x_width, height=self.y_height)
         self.cv.pack()
         hwnd = self.cv.winfo_id()
-        GrabWindow.set_click_through(hwnd)
+        set_click_through(hwnd)
 
         # Spawn a translator
         self.trans = Translator()
@@ -311,24 +361,15 @@ class GrabWindow(tk.Toplevel):
             while stop_threads is False:
                 sleep(self.master.time_interval)
                 # Use pillow to grab image in screen grab box
-                self.cv.pack_forget()
-                self.img = \
-                    ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
-                self.cv.pack()
-                text = pt.image_to_string(self.img)
-                GrabWindow.translate(self, text)
+                if self.winfo_exists():
+                    self.cv.pack_forget()
+                    self.img = \
+                        ImageGrab.grab(bbox=(self.x_min, self.y_min,
+                                             self.x_min + self.x_width, self.y_min + self.y_height))
+                    self.cv.pack()
+                    text = pt.image_to_string(self.img)
+                    GrabWindow.translate(self, text)
         except RuntimeError:
-            pass
-
-    def set_click_through(hwnd):
-        """
-        Make screen grab window not interactable.
-        """
-        try:
-            styles = WS_EX_LAYERED | WS_EX_TRANSPARENT
-            SetWindowLong(hwnd, GWL_EXSTYLE, styles)
-            SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
-        except Exception:
             pass
 
 
@@ -340,15 +381,21 @@ class OptionsWindow(tk.Toplevel):
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
         self.overrideredirect(True)
-        center_window(self)
 
-        # Current screen grab image
-        image_frame = ttk.Frame(self)
-        img = ImageTk.PhotoImage(self.master.img)
+        # Current screen grab image and scroll bars
+        img = ImageTk.PhotoImage(self.master.grab_window.img)
+        limited_img_height = img.height()
+        limited_img_width = img.width()
+        if limited_img_height > 400:
+            limited_img_height = 400
+        if limited_img_width > 400:
+            limited_img_width = 400
+        image_frame = ttk.Frame(self, height=limited_img_height, width=limited_img_width)  # Limit canvas size
+
         xbar = ttk.Scrollbar(image_frame, orient=tk.HORIZONTAL)
         ybar = ttk.Scrollbar(image_frame)
-        image_panel = tk.Canvas(image_frame, highlightthickness=0, height=self.master.img.height,
-                                width=self.master.img.width, xscrollcommand=xbar.set, yscrollcommand=ybar.set)
+        image_panel = tk.Canvas(image_frame, highlightthickness=0, height=img.height(),
+                                width=img.width(), xscrollcommand=xbar.set, yscrollcommand=ybar.set)
         xbar.config(command=image_panel.xview)
         ybar.config(command=image_panel.yview)
         image_panel.create_image(image_panel.winfo_width()/2, image_panel.winfo_height()/2, image=img)
@@ -356,27 +403,27 @@ class OptionsWindow(tk.Toplevel):
 
         xbar.pack(side=tk.BOTTOM, fill=tk.X)
         ybar.pack(side=tk.RIGHT, fill=tk.Y)
-
         image_panel.config(scrollregion=image_panel.bbox(tk.ALL))
         image_panel.pack()
-        image_frame.pack(expand=True, fill="none")
+        image_frame.pack_propagate(False)  # Don't grow if canvas is large
+        image_frame.pack(expand=True, fill=tk.BOTH)
 
         buttons_frame = ttk.Frame(self)
         buttons_frame.pack()
         # Button to update settings
-        save_button = ttk.Button(buttons_frame, text="Save",
-                                 command=self.destroy)
-        # TODO change button function
+        save_button = ttk.Button(buttons_frame, text="Save", command=self.destroy)  # TODO change button function
         save_button.pack(side=tk.LEFT)
         # Button to close window
         close_button = ttk.Button(buttons_frame, text="Exit", command=self.destroy)
         close_button.pack(side=tk.RIGHT)
 
-# TODO when selected area is larger than allowed canvas the grab window is too small
+        center_window(self)
+
+
 # TODO prevent interaction with main window while options open
-# TODO limit size of options window & fix centering
-# TODO close all windows except main button
 # TODO settings in options & actual image adjustment
+# TODO title bar icon
+# TODO seconds selection box for image grabbing
 
 
 if __name__ == '__main__':
