@@ -43,11 +43,15 @@ def stop_threads_true():
     stop_threads = True
 
 
-def center_window(self):
+def center_window(self, boolean=True):
     """
-    Spawn new window in center of screen.
+    Spawn new window in center of screen. Default to True for main window, False for other windows
+    will cause them to center on the main window and not the screen.
     """
-    self.tk.eval(f'tk::PlaceWindow {self._w} center')
+    if boolean is True:
+        self.tk.eval(f'tk::PlaceWindow {self._w} center')
+    else:
+        self.tk.eval(f'tk::PlaceWindow {self._w} widget {self.master}')
     self.attributes('-topmost', True)
 
 
@@ -68,6 +72,7 @@ class IntegerEntry(ttk.Entry):
     Entry box that checks for integer input and overwrites invalid input.
     Used to determine sample time of grab window.
     """
+
     def __init__(self, master, string):
         self.var = tk.StringVar(value=string)
         ttk.Entry.__init__(self, master, textvariable=self.var)
@@ -204,7 +209,8 @@ class App(tk.Toplevel):
         area_select_button.pack()
 
         # Add button to open settings adjustment window.
-        self.options_button = ttk.Button(button_frame, text="Image Options", command=self.options_window_open, state='disabled')
+        self.options_button = ttk.Button(button_frame, text="Image Options", command=self.options_window_open,
+                                         state='disabled')
         self.options_button.pack()
 
         # Close other windows button
@@ -408,52 +414,66 @@ class OptionsWindow(tk.Toplevel):
     Window that shows user what image pytesseract is seeing for text extraction and allows
     user to adjust settings to make text extraction easier.
     """
+
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
         self.overrideredirect(True)
+        self.threshold = 100  # TODO placeholder replace with slider for user input
 
-        self.refresh_image()
-
-        center_window(self)
-
-    def refresh_image(self):
-        """
-        Use when options are adjusted or window spawned. Unpack and repack image canvas with new image.
-        """
         # Current screen grab image and scroll bars
-        img = ImageTk.PhotoImage(self.master.grab_window.img)
-        limited_img_height = img.height()
-        limited_img_width = img.width()
+        self.img = self.master.grab_window.img
+
+        limited_img_height = self.img.size[0]  # width
+        limited_img_width = self.img.size[1]  # height
         if limited_img_height > 400:
             limited_img_height = 400
         if limited_img_width > 400:
             limited_img_width = 400
         image_frame = ttk.Frame(self, height=limited_img_height, width=limited_img_width)  # Limit canvas size
 
+        # Scroll bar configs
         xbar = ttk.Scrollbar(image_frame, orient=tk.HORIZONTAL)
         ybar = ttk.Scrollbar(image_frame)
-        image_panel = tk.Canvas(image_frame, highlightthickness=0, height=img.height(),
-                                width=img.width(), xscrollcommand=xbar.set, yscrollcommand=ybar.set)
-        xbar.config(command=image_panel.xview)
-        ybar.config(command=image_panel.yview)
-        image_panel.create_image(image_panel.winfo_width() / 2, image_panel.winfo_height() / 2, image=img)
-        image_panel.image = img  # Prevent garbage collection of image
-
+        self.image_panel = tk.Canvas(image_frame, highlightthickness=0, height=self.img.size[1],
+                                     width=self.img.size[0], xscrollcommand=xbar.set, yscrollcommand=ybar.set)
+        xbar.config(command=self.image_panel.xview)
+        ybar.config(command=self.image_panel.yview)
         xbar.pack(side=tk.BOTTOM, fill=tk.X)
         ybar.pack(side=tk.RIGHT, fill=tk.Y)
-        image_panel.config(scrollregion=image_panel.bbox(tk.ALL))
-        image_panel.pack()
+
+        # Actual first image spawn
+        self.refresh_image()
+
+        # Pack image-containing canvas
+        self.image_panel.config(scrollregion=self.image_panel.bbox(tk.ALL))
+        self.image_panel.pack()
         image_frame.pack_propagate(False)  # Don't grow if canvas is large
         image_frame.pack(expand=True, fill=tk.BOTH)
 
         buttons_frame = ttk.Frame(self)
         buttons_frame.pack()
         # Button to update settings
-        save_button = ttk.Button(buttons_frame, text="Save", command=self.destroy)  # TODO change button function
+        save_button = ttk.Button(buttons_frame, text="Save", command=self.refresh_image)  # TODO change button function
         save_button.pack(side=tk.LEFT)
         # Button to close window
         close_button = ttk.Button(buttons_frame, text="Exit", command=self.destroy)
         close_button.pack(side=tk.RIGHT)
+
+        center_window(self, False)
+
+    def refresh_image(self):
+        """
+        Use when options are adjusted or window spawned. Unpack and repack image canvas with new image.
+        """
+        # self.img = ImageTk.PhotoImage(self.master.grab_window.img)
+        self.img = self.master.grab_window.img
+        self.img = self.img.convert("L")  # Grayscale
+        # PIL thresholding: white if above threshold, black otherwise
+        self.img = self.img.point(lambda p: 255 if p > self.threshold else 0)
+        self.img = ImageTk.PhotoImage(self.img.convert("1"))  # Monochromatic
+
+        self.image_panel.create_image(self.img.width(), self.img.height(), image=self.img)
+        self.image_panel.image = self.img  # Prevent garbage collection of image
 
 
 # TODO prevent interaction with main window while options open
