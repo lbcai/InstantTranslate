@@ -63,6 +63,30 @@ def set_click_through(hwnd):
         pass
 
 
+class IntegerEntry(ttk.Entry):
+    """
+    Entry box that checks for integer input and overwrites invalid input.
+    Used to determine sample time of grab window.
+    """
+    def __init__(self, master, string):
+        self.var = tk.StringVar(value=string)
+        ttk.Entry.__init__(self, master, textvariable=self.var)
+        self.reset_value = string
+        self.var.trace_add('write', self.check)  # Add observer. On write, check input.
+
+    def check(self, *args):
+        """
+        Used on input to entry box to check input.
+        """
+        if self.get().isdigit():
+            # Input is numbers, change value to reset to to be current input.
+            self.reset_value = self.get()
+        else:
+            # If input has non numbers, reset input.
+            self.delete(0, tk.END)
+            self.insert(0, self.reset_value)
+
+
 class Root(ThemedTk):
     """
     Make root window default to transparent. This root window will allow the program
@@ -120,8 +144,6 @@ class App(tk.Toplevel):
         self.grab_window = None
         # Options window for user to adjust image settings for text reading
         self.options_window = None
-        # Seconds between image grab
-        self.time_interval = 1
         # Thread for image grab window
         self.t = None
 
@@ -168,8 +190,16 @@ class App(tk.Toplevel):
         language_dropdown.pack()
         language_frame.pack(padx=5, pady=5)
 
-        button_frame = ttk.Frame(self)
+        # Add time interval selection for grab window.
+        time_selection_frame = ttk.Frame(self)
+        time_selection_label = ttk.Label(time_selection_frame, text="Image Sample Interval (sec):")
+        self.time_selection_entry = IntegerEntry(time_selection_frame, '1')  # Default sample time is once a second.
+        time_selection_label.pack()
+        self.time_selection_entry.pack()
+        time_selection_frame.pack()
+
         # Add screen grab button and bind click + drag motion to it.
+        button_frame = ttk.Frame(self)
         area_select_button = ttk.Button(button_frame, text="Select Area", command=self.screen_grab)
         area_select_button.pack()
 
@@ -359,7 +389,7 @@ class GrabWindow(tk.Toplevel):
     def screen_grab_loop(self):
         try:
             while stop_threads is False:
-                sleep(self.master.time_interval)
+                sleep(int(self.master.time_selection_entry.get()))
                 # Use pillow to grab image in screen grab box
                 if self.winfo_exists():
                     self.cv.pack_forget()
@@ -382,6 +412,14 @@ class OptionsWindow(tk.Toplevel):
         tk.Toplevel.__init__(self, master)
         self.overrideredirect(True)
 
+        self.refresh_image()
+
+        center_window(self)
+
+    def refresh_image(self):
+        """
+        Use when options are adjusted or window spawned. Unpack and repack image canvas with new image.
+        """
         # Current screen grab image and scroll bars
         img = ImageTk.PhotoImage(self.master.grab_window.img)
         limited_img_height = img.height()
@@ -398,7 +436,7 @@ class OptionsWindow(tk.Toplevel):
                                 width=img.width(), xscrollcommand=xbar.set, yscrollcommand=ybar.set)
         xbar.config(command=image_panel.xview)
         ybar.config(command=image_panel.yview)
-        image_panel.create_image(image_panel.winfo_width()/2, image_panel.winfo_height()/2, image=img)
+        image_panel.create_image(image_panel.winfo_width() / 2, image_panel.winfo_height() / 2, image=img)
         image_panel.image = img  # Prevent garbage collection of image
 
         xbar.pack(side=tk.BOTTOM, fill=tk.X)
@@ -417,13 +455,10 @@ class OptionsWindow(tk.Toplevel):
         close_button = ttk.Button(buttons_frame, text="Exit", command=self.destroy)
         close_button.pack(side=tk.RIGHT)
 
-        center_window(self)
-
 
 # TODO prevent interaction with main window while options open
 # TODO settings in options & actual image adjustment
 # TODO title bar icon
-# TODO seconds selection box for image grabbing
 
 
 if __name__ == '__main__':
