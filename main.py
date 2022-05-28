@@ -78,18 +78,44 @@ class IntegerEntry(ttk.Entry):
         ttk.Entry.__init__(self, master, textvariable=self.var)
         self.reset_value = string
         self.var.trace_add('write', self.check)  # Add observer. On write, check input.
+        # Thread for listening while input box is empty.
+        self.t = Thread(target=self.check_thread_helper)
 
     def check(self, *args):
         """
-        Used on input to entry box to check input.
+        Used on input to entry box to check input. Only starts thread for listening.
+        """
+        if not self.t.is_alive():
+            self.t.start()
+
+    def check_input(self):
+        """
+        Actual check input logic for thread to run.
         """
         if self.get().isdigit():
             # Input is numbers, change value to reset to to be current input.
             self.reset_value = self.get()
         else:
-            # If input has non numbers, reset input.
+            # Input not numbers, replace value with last good input.
             self.delete(0, tk.END)
             self.insert(0, self.reset_value)
+
+    def check_thread_helper(self):
+        """
+        For thread to run to keep program responsive.
+        """
+        # If empty, wait until box not in focus to refill so user has time to delete all text and re-enter.
+        while stop_threads is False:
+            try:
+                while self.master.master.focus_get() is self:
+                    if self.get() == '':
+                        pass
+                    else:
+                        self.check_input()
+                else:
+                    self.check_input()
+            except KeyError:
+                pass
 
 
 class Root(ThemedTk):
@@ -151,6 +177,9 @@ class App(tk.Toplevel):
         self.options_window = None
         # Thread for image grab window
         self.t = None
+        # Boolean for use thresholding on image
+        self.thresholding_boolean = False
+        self.threshold = '100'
 
         # Create custom window title bar to match theme.
         self.overrideredirect(True)
@@ -228,7 +257,6 @@ class App(tk.Toplevel):
         if self.grab_window is not None and self.grab_window.winfo_exists():
             self.grab_window.destroy()
             self.options_button_disable(True)
-            self.close_thread()
         if self.options_window is not None and self.options_window.winfo_exists():
             self.options_window.destroy()
 
@@ -266,13 +294,6 @@ class App(tk.Toplevel):
         """
         self.overlay_window = OverlayWindow(self)
 
-    def close_thread(self):
-        """
-        Close threads when main app still open.
-        """
-        if self.t is not None:
-            self.t.join()  # Prevent many loose dangling threads from window spamming.
-
     def create_grab_window(self, stored_values):
         """
         Create screen grab window after overlay window used to draw rectangle.
@@ -280,8 +301,9 @@ class App(tk.Toplevel):
         self.overlay_window.destroy()
         self.grab_window = GrabWindow(stored_values, self)
         # Create thread for the image grabbing window loop.
-        self.close_thread()
-        self.t = Thread(target=GrabWindow.screen_grab_loop, args=(self.grab_window,)).start()
+        self.t = Thread(target=GrabWindow.screen_grab_loop, args=(self.grab_window,))
+        if not self.t.is_alive():
+            self.t.start()
 
 
 class OverlayWindow(tk.Toplevel):
@@ -390,12 +412,16 @@ class GrabWindow(tk.Toplevel):
         if text is not None:
             print(self.master.target_lang.get())
             translation = self.trans.translate(text, dest=self.master.target_lang.get(), src='auto')
-            print(translation.text)
+            print(translation.text)  # TODO add text to a window
 
     def screen_grab_loop(self):
         try:
             while stop_threads is False:
-                sleep(int(self.master.time_selection_entry.get()))
+                if not self.master.time_selection_entry.get().isdigit():
+                    sleep_time = int('5')
+                else:
+                    sleep_time = int(self.master.time_selection_entry.get())
+                sleep(sleep_time)
                 # Use pillow to grab image in screen grab box
                 if self.winfo_exists():
                     self.cv.pack_forget()
@@ -418,7 +444,10 @@ class OptionsWindow(tk.Toplevel):
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
         self.overrideredirect(True)
-        self.threshold = 100  # TODO placeholder replace with slider for user input
+
+        self.thresholding_boolean_var = tk.BooleanVar()
+        self.thresholding_boolean_var.set(self.master.thresholding_boolean)
+        # TODO placeholder replace with slider for user input
 
         # Current screen grab image and scroll bars
         self.img = self.master.grab_window.img
@@ -450,10 +479,22 @@ class OptionsWindow(tk.Toplevel):
         image_frame.pack_propagate(False)  # Don't grow if canvas is large
         image_frame.pack(expand=True, fill=tk.BOTH)
 
+        # Image adjustment settings - create checkboxes and fields
+        adjustment_frame = ttk.Frame(self)
+        thresholding_checkbox = ttk.Checkbutton(adjustment_frame, text="Thresholding",
+                                                variable=self.thresholding_boolean_var, onvalue=True, offvalue=False,
+                                                command=self.refresh_image)
+        thresholding_checkbox.pack()
+        thresholding_label = ttk.Label(adjustment_frame, text="Threshold Value:")
+        thresholding_label.pack()
+        self.thresholding_input_box = IntegerEntry(adjustment_frame, self.master.threshold)
+        self.thresholding_input_box.pack()
+        adjustment_frame.pack()
+
         buttons_frame = ttk.Frame(self)
         buttons_frame.pack()
         # Button to update settings
-        save_button = ttk.Button(buttons_frame, text="Save", command=self.refresh_image)  # TODO change button function
+        save_button = ttk.Button(buttons_frame, text="Save", command=self.push_options)  # TODO change button function
         save_button.pack(side=tk.LEFT)
         # Button to close window
         close_button = ttk.Button(buttons_frame, text="Exit", command=self.destroy)
@@ -461,16 +502,29 @@ class OptionsWindow(tk.Toplevel):
 
         center_window(self, False)
 
+    def push_options(self):
+        """
+        Use when saving options. Push options to main program window.
+        """
+        # Make sure we are getting a number, else don't save input.
+        if self.thresholding_input_box.get().isdigit():
+            self.master.threshold = self.thresholding_input_box.get()
+        self.master.thresholding_boolean = self.thresholding_boolean_var.get()
+
     def refresh_image(self):
         """
         Use when options are adjusted or window spawned. Unpack and repack image canvas with new image.
         """
         # self.img = ImageTk.PhotoImage(self.master.grab_window.img)
         self.img = self.master.grab_window.img
-        self.img = self.img.convert("L")  # Grayscale
-        # PIL thresholding: white if above threshold, black otherwise
-        self.img = self.img.point(lambda p: 255 if p > self.threshold else 0)
-        self.img = ImageTk.PhotoImage(self.img.convert("1"))  # Monochromatic
+
+        if self.thresholding_boolean_var.get() is True:
+            self.img = self.img.convert("L")  # Grayscale
+            # PIL thresholding: white if above threshold, black otherwise
+            self.img = self.img.point(lambda p: 255 if p > int(self.thresholding_input_box.get()) else 0)
+            self.img = self.img.convert("1")  # Monochromatic
+
+        self.img = ImageTk.PhotoImage(self.img)
 
         self.image_panel.create_image(self.img.width(), self.img.height(), image=self.img)
         self.image_panel.image = self.img  # Prevent garbage collection of image
@@ -479,7 +533,8 @@ class OptionsWindow(tk.Toplevel):
 # TODO prevent interaction with main window while options open
 # TODO settings in options & actual image adjustment
 # TODO title bar icon
-
+# TODO Move threads to main program - currently bugs on options window close because thread continues to try to access
+# integer entry box but it no longer exists
 
 if __name__ == '__main__':
     root = Root()
