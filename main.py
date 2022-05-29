@@ -447,7 +447,6 @@ class OptionsWindow(tk.Toplevel):
 
         self.thresholding_boolean_var = tk.BooleanVar()
         self.thresholding_boolean_var.set(self.master.thresholding_boolean)
-        # TODO placeholder replace with slider for user input
 
         # Current screen grab image and scroll bars
         self.img = self.master.grab_window.img
@@ -470,9 +469,6 @@ class OptionsWindow(tk.Toplevel):
         xbar.pack(side=tk.BOTTOM, fill=tk.X)
         ybar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Actual first image spawn
-        self.refresh_image()
-
         # Pack image-containing canvas
         self.image_panel.config(scrollregion=self.image_panel.bbox(tk.ALL))
         self.image_panel.pack()
@@ -480,21 +476,24 @@ class OptionsWindow(tk.Toplevel):
         image_frame.pack(expand=True, fill=tk.BOTH)
 
         # Image adjustment settings - create checkboxes and fields
-        adjustment_frame = ttk.Frame(self)
-        thresholding_checkbox = ttk.Checkbutton(adjustment_frame, text="Thresholding",
+        self.adjustment_frame = ttk.Frame(self)
+        thresholding_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Thresholding",
                                                 variable=self.thresholding_boolean_var, onvalue=True, offvalue=False,
                                                 command=self.refresh_image)
         thresholding_checkbox.pack()
-        thresholding_label = ttk.Label(adjustment_frame, text="Threshold Value:")
-        thresholding_label.pack()
-        self.thresholding_input_box = IntegerEntry(adjustment_frame, self.master.threshold)
-        self.thresholding_input_box.pack()
-        adjustment_frame.pack()
+        self.thresholding_input_slide = ttk.Scale(self.adjustment_frame, from_=0, to=100, orient='horizontal')
+        self.thresholding_input_slide.set(self.master.threshold)
+        self.thresholding_label = ttk.Label(self.adjustment_frame,
+                                            text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
+        self.thresholding_input_slide.config(command=lambda x: [self.update_threshold_display(), self.refresh_image()])
+        self.thresholding_label.pack()
+        self.thresholding_input_slide.pack()
+        self.adjustment_frame.pack()
 
         buttons_frame = ttk.Frame(self)
         buttons_frame.pack()
         # Button to update settings
-        save_button = ttk.Button(buttons_frame, text="Save", command=self.push_options)  # TODO change button function
+        save_button = ttk.Button(buttons_frame, text="Save", command=lambda: [self.push_options(), self.destroy()])
         save_button.pack(side=tk.LEFT)
         # Button to close window
         close_button = ttk.Button(buttons_frame, text="Exit", command=self.destroy)
@@ -502,13 +501,18 @@ class OptionsWindow(tk.Toplevel):
 
         center_window(self, False)
 
+        # Actual first image spawn
+        self.refresh_image()
+
+    def update_threshold_display(self):
+        self.thresholding_label.config(text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
+
     def push_options(self):
         """
         Use when saving options. Push options to main program window.
         """
         # Make sure we are getting a number, else don't save input.
-        if self.thresholding_input_box.get().isdigit():
-            self.master.threshold = self.thresholding_input_box.get()
+        self.master.threshold = self.thresholding_input_slide.get()
         self.master.thresholding_boolean = self.thresholding_boolean_var.get()
 
     def refresh_image(self):
@@ -521,12 +525,12 @@ class OptionsWindow(tk.Toplevel):
         if self.thresholding_boolean_var.get() is True:
             self.img = self.img.convert("L")  # Grayscale
             # PIL thresholding: white if above threshold, black otherwise
-            self.img = self.img.point(lambda p: 255 if p > int(self.thresholding_input_box.get()) else 0)
+            self.img = self.img.point(lambda p: 255 if p > int(self.thresholding_input_slide.get()) else 0)
             self.img = self.img.convert("1")  # Monochromatic
 
         self.img = ImageTk.PhotoImage(self.img)
 
-        self.image_panel.create_image(self.img.width(), self.img.height(), image=self.img)
+        self.image_panel.create_image(self.img.width()//2, self.img.height()//2, image=self.img)
         self.image_panel.image = self.img  # Prevent garbage collection of image
 
 
