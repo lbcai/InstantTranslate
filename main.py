@@ -479,7 +479,7 @@ class OptionsWindow(tk.Toplevel):
         self.adjustment_frame = ttk.Frame(self)
         thresholding_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Thresholding",
                                                 variable=self.thresholding_boolean_var, onvalue=True, offvalue=False,
-                                                command=self.refresh_image)
+                                                command=lambda: [self.refresh_image(), self.toggle_threshold_slider()])
         thresholding_checkbox.pack()
         self.thresholding_input_slide = ttk.Scale(self.adjustment_frame, from_=0, to=100, orient='horizontal')
         self.thresholding_input_slide.set(self.master.threshold)
@@ -488,6 +488,7 @@ class OptionsWindow(tk.Toplevel):
         self.thresholding_input_slide.config(command=lambda x: [self.update_threshold_display(), self.refresh_image()])
         self.thresholding_label.pack()
         self.thresholding_input_slide.pack()
+        self.toggle_threshold_slider()
         self.adjustment_frame.pack()
 
         buttons_frame = ttk.Frame(self)
@@ -503,6 +504,12 @@ class OptionsWindow(tk.Toplevel):
 
         # Actual first image spawn
         self.refresh_image()
+
+    def toggle_threshold_slider(self):
+        if self.thresholding_boolean_var.get() is True:
+            self.thresholding_input_slide.config(state='enabled')
+        else:
+            self.thresholding_input_slide.config(state='disabled')
 
     def update_threshold_display(self):
         self.thresholding_label.config(text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
