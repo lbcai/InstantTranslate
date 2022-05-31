@@ -488,23 +488,23 @@ class OptionsWindow(tk.Toplevel):
             limited_img_height = 400
         if limited_img_width > 400:
             limited_img_width = 400
-        image_frame = ttk.Frame(self, height=limited_img_height, width=limited_img_width)  # Limit canvas size
+        self.image_frame = ttk.Frame(self, height=limited_img_height, width=limited_img_width)  # Limit canvas size
 
         # Scroll bar configs
-        xbar = ttk.Scrollbar(image_frame, orient=tk.HORIZONTAL)
-        ybar = ttk.Scrollbar(image_frame)
-        self.image_panel = tk.Canvas(image_frame, highlightthickness=0, height=self.img.size[1],
-                                     width=self.img.size[0], xscrollcommand=xbar.set, yscrollcommand=ybar.set)
-        xbar.config(command=self.image_panel.xview)
-        ybar.config(command=self.image_panel.yview)
-        xbar.pack(side=tk.BOTTOM, fill=tk.X)
-        ybar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.xbar = ttk.Scrollbar(self.image_frame, orient=tk.HORIZONTAL)
+        self.ybar = ttk.Scrollbar(self.image_frame)
+        self.image_panel = tk.Canvas(self.image_frame, highlightthickness=0, height=self.img.size[1],
+                                     width=self.img.size[0], xscrollcommand=self.xbar.set, yscrollcommand=self.ybar.set)
+        self.xbar.config(command=self.image_panel.xview)
+        self.ybar.config(command=self.image_panel.yview)
+        self.xbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.ybar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Pack image-containing canvas
         self.image_panel.config(scrollregion=self.image_panel.bbox(tk.ALL))
         self.image_panel.pack()
-        image_frame.pack_propagate(False)  # Don't grow if canvas is large
-        image_frame.pack(expand=True, fill=tk.BOTH)
+        self.image_frame.pack_propagate(False)  # Don't grow if canvas is large
+        self.image_frame.pack(expand=True, fill=tk.BOTH)
 
         # Image adjustment settings - create checkboxes and fields
         # Thresholding
@@ -602,6 +602,7 @@ class OptionsWindow(tk.Toplevel):
             width = self.img.size[0] * int(self.resize_input_slide.get())
             height = self.img.size[1] * int(self.resize_input_slide.get())
             self.img = self.img.resize((width, height))
+            self.image_panel.config(height=self.img.size[1], width=self.img.size[0])
 
         if self.thresholding_boolean_var.get() is True:
             self.img = self.img.convert("L")  # Grayscale
@@ -618,7 +619,7 @@ class OptionsWindow(tk.Toplevel):
         self.image_panel.image = self.img  # Prevent garbage collection of image
 
 
-# TODO image resize as an option (fix dynamic scaling), rotation, specify box for border removal, noise removal
+# TODO rotation, specify box for border removal, noise removal
 # TODO title bar icon
 # TODO Move threads to main program - currently bugs on options window close because thread continues to try to access
 # integer entry box but it no longer exists
