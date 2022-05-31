@@ -427,11 +427,17 @@ class GrabWindow(tk.Toplevel):
                 sleep(sleep_time)
                 # Use pillow to grab image in screen grab box
                 if self.winfo_exists():
-                    self.cv.pack_forget()
+                    self.cv.pack_forget()  # Temporarily unpack canvas to take a nice image of the text.
                     self.img = \
                         ImageGrab.grab(bbox=(self.x_min, self.y_min,
                                              self.x_min + self.x_width, self.y_min + self.y_height))
-                    self.cv.pack()
+                    self.cv.pack()  # Repack canvas so user can see the window again.
+                    if self.master.thresholding_boolean is True:
+                        self.img = self.img.convert("L")  # Grayscale
+                        # PIL thresholding: white if above threshold, black otherwise
+                        self.img = self.img.point(lambda p: 255 if p > int(self.master.threshold) else 0)
+                        self.img = self.img.convert("1")  # Monochromatic
+
                     text = pt.image_to_string(self.img)
                     GrabWindow.translate(self, text)
         except RuntimeError:
