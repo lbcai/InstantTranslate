@@ -286,6 +286,9 @@ class App(tk.Toplevel):
         text from screen grab.
         """
         self.options_window = OptionsWindow(self)
+        # Stop user from interacting with main window until options are closed.
+        self.options_window.grab_set()
+        self.options_window.wait_window()
 
     def screen_grab(self):
         """
@@ -541,7 +544,6 @@ class OptionsWindow(tk.Toplevel):
         self.image_panel.image = self.img  # Prevent garbage collection of image
 
 
-# TODO prevent interaction with main window while options open
 # TODO settings in options & actual image adjustment
 # TODO title bar icon
 # TODO Move threads to main program - currently bugs on options window close because thread continues to try to access
