@@ -6,7 +6,7 @@ from ttkthemes import ThemedTk
 from win32gui import SetWindowLong, SetLayeredWindowAttributes
 from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
 # for image taking and text conversion
-from PIL import ImageGrab, ImageTk
+from PIL import ImageGrab, ImageTk, ImageChops
 import pytesseract as pt
 # for running image taking while keeping program running
 from time import sleep
@@ -177,9 +177,12 @@ class App(tk.Toplevel):
         self.options_window = None
         # Thread for image grab window
         self.t = None
-        # Boolean for use thresholding on image
+        # Boolean for use thresholding & other options on image
         self.thresholding_boolean = False
         self.threshold = '100'
+        self.inversion_boolean = False
+        self.resize_boolean = False
+        self.resize = '1'
 
         # Create custom window title bar to match theme.
         self.overrideredirect(True)
@@ -407,7 +410,11 @@ class GrabWindow(tk.Toplevel):
         # Spawn a translator
         self.trans = Translator()
 
-        self.img = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min + self.y_height))
+        # Make a raw image for viewing and an img for running translator on to prevent logic shenanigans with
+        # options checkboxes.
+        self.img_raw = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min +
+                                            self.y_height))
+        self.img = self.img_raw.copy()
         text = pt.image_to_string(self.img)
         GrabWindow.translate(self, text)
 
@@ -428,15 +435,25 @@ class GrabWindow(tk.Toplevel):
                 # Use pillow to grab image in screen grab box
                 if self.winfo_exists():
                     self.cv.pack_forget()  # Temporarily unpack canvas to take a nice image of the text.
-                    self.img = \
+                    self.img_raw = \
                         ImageGrab.grab(bbox=(self.x_min, self.y_min,
                                              self.x_min + self.x_width, self.y_min + self.y_height))
+                    self.img = self.img_raw.copy()
                     self.cv.pack()  # Repack canvas so user can see the window again.
+
+                    if self.master.resize_boolean is True:
+                        width = self.img.width * int(self.master.resize)
+                        height = self.img.height * int(self.master.resize)
+                        self.img = self.img.resize((width, height))
+
                     if self.master.thresholding_boolean is True:
                         self.img = self.img.convert("L")  # Grayscale
                         # PIL thresholding: white if above threshold, black otherwise
                         self.img = self.img.point(lambda p: 255 if p > int(self.master.threshold) else 0)
                         self.img = self.img.convert("1")  # Monochromatic
+
+                    if self.master.inversion_boolean is True:
+                        self.img = ImageChops.invert(self.img)
 
                     text = pt.image_to_string(self.img)
                     GrabWindow.translate(self, text)
@@ -454,8 +471,13 @@ class OptionsWindow(tk.Toplevel):
         tk.Toplevel.__init__(self, master)
         self.overrideredirect(True)
 
+        # Define variables that will be used below to pass options back up to main program.
         self.thresholding_boolean_var = tk.BooleanVar()
         self.thresholding_boolean_var.set(self.master.thresholding_boolean)
+        self.inversion_boolean_var = tk.BooleanVar()
+        self.inversion_boolean_var.set(self.master.inversion_boolean)
+        self.resize_boolean_var = tk.BooleanVar()
+        self.resize_boolean_var.set(self.master.resize_boolean)
 
         # Current screen grab image and scroll bars
         self.img = self.master.grab_window.img
@@ -485,19 +507,52 @@ class OptionsWindow(tk.Toplevel):
         image_frame.pack(expand=True, fill=tk.BOTH)
 
         # Image adjustment settings - create checkboxes and fields
+        # Thresholding
         self.adjustment_frame = ttk.Frame(self)
         thresholding_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Thresholding",
                                                 variable=self.thresholding_boolean_var, onvalue=True, offvalue=False,
-                                                command=lambda: [self.refresh_image(), self.toggle_threshold_slider()])
+                                                command=lambda: [self.refresh_image(),
+                                                                 self.toggle_slider(self.thresholding_boolean_var.get(),
+                                                                                    self.thresholding_input_slide)])
         thresholding_checkbox.pack()
         self.thresholding_input_slide = ttk.Scale(self.adjustment_frame, from_=0, to=100, orient='horizontal')
         self.thresholding_input_slide.set(self.master.threshold)
+        thresholding_first_label = ttk.Label(self.adjustment_frame, text="Threshold Value: ")
         self.thresholding_label = ttk.Label(self.adjustment_frame,
-                                            text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
-        self.thresholding_input_slide.config(command=lambda x: [self.update_threshold_display(), self.refresh_image()])
+                                            text=f"{int(self.thresholding_input_slide.get())}")
+        self.thresholding_input_slide.config(command=lambda x: [self.update_display(self.thresholding_label,
+                                                                self.thresholding_input_slide.get()),
+                                                                self.refresh_image()])
+        thresholding_first_label.pack()
         self.thresholding_label.pack()
         self.thresholding_input_slide.pack()
-        self.toggle_threshold_slider()
+        self.toggle_slider(self.thresholding_boolean_var.get(), self.thresholding_input_slide)
+
+        # Resize
+        resize_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Scale",
+                                          variable=self.resize_boolean_var, onvalue=True, offvalue=False,
+                                          command=lambda: [self.refresh_image(),
+                                                           self.toggle_slider(self.resize_boolean_var.get(),
+                                                                              self.resize_input_slide)])
+        resize_checkbox.pack()
+        self.resize_input_slide = ttk.Scale(self.adjustment_frame, from_=1, to=8, orient='horizontal')
+        self.resize_input_slide.set(self.master.resize)
+        resize_first_label = ttk.Label(self.adjustment_frame, text="Scale Multiplier: ")
+        self.resize_label = ttk.Label(self.adjustment_frame,
+                                      text=f"{int(self.resize_input_slide.get())}")
+        self.resize_input_slide.config(command=lambda x: [self.update_display(self.resize_label,
+                                                                              self.resize_input_slide.get()),
+                                                          self.refresh_image()])
+        resize_first_label.pack()
+        self.resize_label.pack()
+        self.resize_input_slide.pack()
+        self.toggle_slider(self.resize_boolean_var.get(), self.resize_input_slide)
+
+        # Invert
+        self.inversion_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Invert",
+                                                  variable=self.inversion_boolean_var, onvalue=True, offvalue=False,
+                                                  command=self.refresh_image)
+        self.inversion_checkbox.pack()
         self.adjustment_frame.pack()
 
         buttons_frame = ttk.Frame(self)
@@ -514,14 +569,14 @@ class OptionsWindow(tk.Toplevel):
         # Actual first image spawn
         self.refresh_image()
 
-    def toggle_threshold_slider(self):
-        if self.thresholding_boolean_var.get() is True:
-            self.thresholding_input_slide.config(state='enabled')
+    def toggle_slider(self, boolean, slide):
+        if boolean is True:
+            slide.config(state='enabled')
         else:
-            self.thresholding_input_slide.config(state='disabled')
+            slide.config(state='disabled')
 
-    def update_threshold_display(self):
-        self.thresholding_label.config(text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
+    def update_display(self, label, boolean):
+        label.config(text=f"{int(boolean)}")
 
     def push_options(self):
         """
@@ -531,12 +586,22 @@ class OptionsWindow(tk.Toplevel):
         self.master.threshold = self.thresholding_input_slide.get()
         self.master.thresholding_boolean = self.thresholding_boolean_var.get()
 
+        self.master.resize = self.resize_input_slide.get()
+        self.master.resize_boolean = self.resize_boolean_var.get()
+
+        self.master.inversion_boolean = self.inversion_boolean_var.get()
+
     def refresh_image(self):
         """
         Use when options are adjusted or window spawned. Unpack and repack image canvas with new image.
         """
         # self.img = ImageTk.PhotoImage(self.master.grab_window.img)
-        self.img = self.master.grab_window.img
+        self.img = self.master.grab_window.img_raw
+
+        if self.resize_boolean_var.get() is True:
+            width = self.img.size[0] * int(self.resize_input_slide.get())
+            height = self.img.size[1] * int(self.resize_input_slide.get())
+            self.img = self.img.resize((width, height))
 
         if self.thresholding_boolean_var.get() is True:
             self.img = self.img.convert("L")  # Grayscale
@@ -544,13 +609,16 @@ class OptionsWindow(tk.Toplevel):
             self.img = self.img.point(lambda p: 255 if p > int(self.thresholding_input_slide.get()) else 0)
             self.img = self.img.convert("1")  # Monochromatic
 
+        if self.inversion_boolean_var.get() is True:
+            self.img = ImageChops.invert(self.img)
+
         self.img = ImageTk.PhotoImage(self.img)
 
-        self.image_panel.create_image(self.img.width()//2, self.img.height()//2, image=self.img)
+        self.image_panel.create_image(self.img.width() // 2, self.img.height() // 2, image=self.img)
         self.image_panel.image = self.img  # Prevent garbage collection of image
 
 
-# TODO settings in options & actual image adjustment
+# TODO image resize as an option (fix dynamic scaling), rotation, specify box for border removal, noise removal
 # TODO title bar icon
 # TODO Move threads to main program - currently bugs on options window close because thread continues to try to access
 # integer entry box but it no longer exists
