@@ -1,4 +1,5 @@
 # for GUI
+import _tkinter
 import tkinter as tk
 from tkinter import ttk
 from ttkthemes import ThemedTk
@@ -82,9 +83,6 @@ class IntegerEntry(ttk.Entry):
         self.t = Thread(target=self.check_thread_helper)
 
     def check(self, *args):
-        """
-        Used on input to entry box to check input. Only starts thread for listening.
-        """
         if not self.t.is_alive():
             self.t.start()
 
@@ -116,7 +114,7 @@ class IntegerEntry(ttk.Entry):
                     self.check_input()
             except KeyError:
                 pass
-
+# TODO fix bug this method is preventing close when Xing out of main window
 
 class Root(ThemedTk):
     """
@@ -189,7 +187,7 @@ class App(tk.Toplevel):
         title_bar = ttk.Frame(self, borderwidth=3)
         # close root to close program
         close_button = ttk.Button(title_bar, text='X', width=1,
-                                  command=lambda: [self.master.destroy(), stop_threads_true()])
+                                  command=lambda: [self.close_other_windows(), self.master.destroy(), stop_threads_true()])
         # minimize self through root
         mini_button = ttk.Button(title_bar, text='__', width=1, command=self.master.iconify)
         window_title = ttk.Label(title_bar, text=title_string)
@@ -425,40 +423,44 @@ class GrabWindow(tk.Toplevel):
             print(translation.text)  # TODO add text to a window
 
     def screen_grab_loop(self):
-        try:
-            while stop_threads is False:
+        while stop_threads is False:
+            try:
+                print("window thread going", self.master.t)
                 if not self.master.time_selection_entry.get().isdigit():
                     sleep_time = int('5')
                 else:
                     sleep_time = int(self.master.time_selection_entry.get())
                 sleep(sleep_time)
                 # Use pillow to grab image in screen grab box
-                if self.winfo_exists():
-                    self.cv.pack_forget()  # Temporarily unpack canvas to take a nice image of the text.
-                    self.img_raw = \
-                        ImageGrab.grab(bbox=(self.x_min, self.y_min,
-                                             self.x_min + self.x_width, self.y_min + self.y_height))
-                    self.img = self.img_raw.copy()
-                    self.cv.pack()  # Repack canvas so user can see the window again.
 
-                    if self.master.resize_boolean is True:
-                        width = self.img.width * int(self.master.resize)
-                        height = self.img.height * int(self.master.resize)
-                        self.img = self.img.resize((width, height))
+                self.cv.pack_forget()  # Temporarily unpack canvas to take a nice image of the text.
+                self.img_raw = \
+                    ImageGrab.grab(bbox=(self.x_min, self.y_min,
+                                         self.x_min + self.x_width, self.y_min + self.y_height))
+                self.img = self.img_raw.copy()
+                self.cv.pack()  # Repack canvas so user can see the window again.
 
-                    if self.master.thresholding_boolean is True:
-                        self.img = self.img.convert("L")  # Grayscale
-                        # PIL thresholding: white if above threshold, black otherwise
-                        self.img = self.img.point(lambda p: 255 if p > int(self.master.threshold) else 0)
-                        self.img = self.img.convert("1")  # Monochromatic
+                if self.master.resize_boolean is True:
+                    width = self.img.width * int(self.master.resize)
+                    height = self.img.height * int(self.master.resize)
+                    self.img = self.img.resize((width, height))
 
-                    if self.master.inversion_boolean is True:
-                        self.img = ImageChops.invert(self.img)
+                if self.master.thresholding_boolean is True:
+                    self.img = self.img.convert("L")  # Grayscale
+                    # PIL thresholding: white if above threshold, black otherwise
+                    self.img = self.img.point(lambda p: 255 if p > int(self.master.threshold) else 0)
+                    self.img = self.img.convert("1")  # Monochromatic
 
-                    text = pt.image_to_string(self.img)
-                    GrabWindow.translate(self, text)
-        except RuntimeError:
-            pass
+                if self.master.inversion_boolean is True:
+                    self.img = ImageChops.invert(self.img)
+
+                text = pt.image_to_string(self.img)
+                GrabWindow.translate(self, text)
+
+            except RuntimeError:
+                pass
+            except _tkinter.TclError:
+                pass
 
 
 class OptionsWindow(tk.Toplevel):
