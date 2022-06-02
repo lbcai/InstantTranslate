@@ -83,6 +83,9 @@ class IntegerEntry(ttk.Entry):
         self.t = Thread(target=self.check_thread_helper)
 
     def check(self, *args):
+        """
+        Used on input to entry box to check input. Only starts thread for listening.
+        """
         if not self.t.is_alive():
             self.t.start()
 
@@ -103,18 +106,17 @@ class IntegerEntry(ttk.Entry):
         For thread to run to keep program responsive.
         """
         # If empty, wait until box not in focus to refill so user has time to delete all text and re-enter.
-        while stop_threads is False:
-            try:
+        try:
+            while stop_threads is False:
                 while self.master.master.focus_get() is self:
                     if self.get() == '':
                         pass
                     else:
                         self.check_input()
-                else:
-                    self.check_input()
-            except KeyError:
-                pass
-# TODO fix bug this method is preventing close when Xing out of main window
+                self.check_input()
+        except KeyError:  # Python bug, tkinter doesn't understand popdown arrow on Combobox
+            pass
+
 
 class Root(ThemedTk):
     """
@@ -425,7 +427,6 @@ class GrabWindow(tk.Toplevel):
     def screen_grab_loop(self):
         while stop_threads is False:
             try:
-                print("window thread going", self.master.t)
                 if not self.master.time_selection_entry.get().isdigit():
                     sleep_time = int('5')
                 else:
@@ -456,11 +457,10 @@ class GrabWindow(tk.Toplevel):
 
                 text = pt.image_to_string(self.img)
                 GrabWindow.translate(self, text)
-
             except RuntimeError:
-                pass
+                break
             except _tkinter.TclError:
-                pass
+                break
 
 
 class OptionsWindow(tk.Toplevel):
@@ -623,8 +623,6 @@ class OptionsWindow(tk.Toplevel):
 
 # TODO rotation, specify box for border removal, noise removal
 # TODO title bar icon
-# TODO Move threads to main program - currently bugs on options window close because thread continues to try to access
-# integer entry box but it no longer exists
 
 if __name__ == '__main__':
     root = Root()
