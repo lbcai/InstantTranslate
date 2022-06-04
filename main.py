@@ -403,6 +403,7 @@ class GrabWindow(tk.Toplevel):
         self.attributes('-transparentcolor', 'white', '-topmost', True)
         self.config(bg='white')
         self.cv = tk.Canvas(self, bg='white', highlightthickness=0, width=self.x_width, height=self.y_height)
+        self.cv_text = self.cv.create_text(self.x_width//2, self.y_height//2, text=" ", fill="black")
         self.cv.pack()
         hwnd = self.cv.winfo_id()
         set_click_through(hwnd)
@@ -422,7 +423,7 @@ class GrabWindow(tk.Toplevel):
         if text is not None:
             print(self.master.target_lang.get())
             translation = self.trans.translate(text, dest=self.master.target_lang.get(), src='auto')
-            print(translation.text)  # TODO add text to a window
+            self.cv.itemconfig(self.cv_text, text=translation.text)
 
     def screen_grab_loop(self):
         while stop_threads is False:
