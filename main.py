@@ -67,10 +67,40 @@ def set_click_through(hwnd):
     except Exception:
         pass
 
-def make_titlebar(self):
+
+def make_title_bar(self):
     """
     Use to make custom titlebar that matches visual theme of the program.
     """
+    # Create custom window title bar to match theme.
+    self.overrideredirect(True)
+    title_bar = ttk.Frame(self, borderwidth=3)
+    # close root to close program
+    if isinstance(self, App):
+        close_button = ttk.Button(title_bar, text='X', width=1,
+                                  command=lambda: [self.close_other_windows(), self.master.destroy(),
+                                                   stop_threads_true()])
+    else:
+        close_button = ttk.Button(title_bar, text='X', width=1,
+                                  command=self.reset_master_box)
+    # minimize self through root
+    mini_button = ttk.Button(title_bar, text='__', width=1, command=self.master.iconify)
+    window_title = ttk.Label(title_bar, text=title_string)
+    title_bar.pack(expand=1)
+    close_button.pack(side=tk.RIGHT)
+    mini_button.pack(side=tk.RIGHT)
+    window_title.pack(side=tk.LEFT)
+    # Return drag functionality to custom title bar.
+    window_title.bind('<B1-Motion>', lambda event: App.move_window(self, event))
+    window_title.bind('<ButtonPress-1>', lambda event: App.click_window(self, event))
+    title_bar.bind('<B1-Motion>', lambda event: App.move_window(self, event))
+    title_bar.bind('<ButtonPress-1>', lambda event: App.click_window(self, event))
+
+    # Divide the title bar space off from the main window space.
+    separator = tk.Frame(self, height=1, borderwidth=0, bg='#373737')
+    separator.pack(fill=tk.X, padx=5)
+    separator_underline = tk.Frame(self, height=1, borderwidth=0, bg='#414141')
+    separator_underline.pack(fill=tk.X, padx=5)
 
 
 class IntegerEntry(ttk.Entry):
@@ -193,33 +223,10 @@ class App(tk.Toplevel):
         self.text_window_boolean = tk.BooleanVar()
         self.text_window_boolean.set(False)
 
-        # Create custom window title bar to match theme.
-        self.overrideredirect(True)
-        title_bar = ttk.Frame(self, borderwidth=3)
-        # close root to close program
-        close_button = ttk.Button(title_bar, text='X', width=1,
-                                  command=lambda: [self.close_other_windows(), self.master.destroy(), stop_threads_true()])
-        # minimize self through root
-        mini_button = ttk.Button(title_bar, text='__', width=1, command=self.master.iconify)
-        window_title = ttk.Label(title_bar, text=title_string)
-        title_bar.pack(expand=1)
-        close_button.pack(side=tk.RIGHT)
-        mini_button.pack(side=tk.RIGHT)
-        window_title.pack(side=tk.LEFT)
-        # Return drag functionality to custom title bar.
-        window_title.bind('<B1-Motion>', lambda event: App.move_window(self, event))
-        window_title.bind('<ButtonPress-1>', lambda event: App.click_window(self, event))
-        title_bar.bind('<B1-Motion>', lambda event: App.move_window(self, event))
-        title_bar.bind('<ButtonPress-1>', lambda event: App.click_window(self, event))
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
         self.y_pos = 0
-
-        # Divide the title bar space off from the main window space.
-        separator = tk.Frame(self, height=1, borderwidth=0, bg='#373737')
-        separator.pack(fill=tk.X, padx=5)
-        separator_underline = tk.Frame(self, height=1, borderwidth=0, bg='#414141')
-        separator_underline.pack(fill=tk.X, padx=5)
+        make_title_bar(self)
 
         # Add language choice dropdown.
         # Color combobox dropdowns on this window to match Equilux theme.
@@ -245,8 +252,8 @@ class App(tk.Toplevel):
         time_selection_frame.pack()
 
         self.window_checkbox = ttk.Checkbutton(self, text="Text Window",
-                                          variable=self.text_window_boolean, onvalue=True, offvalue=False,
-                                          command=self.text_window_generate)
+                                               variable=self.text_window_boolean, onvalue=True, offvalue=False,
+                                               command=self.text_window_generate)
         self.window_checkbox.pack()
 
         # Add screen grab button and bind click + drag motion to it.
@@ -341,14 +348,25 @@ class TextWindow(tk.Toplevel):
     """
     Window to display translated text if user selects option to use.
     """
+
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
-        # Clear old windows if any exist.
-        if self.master.grab_window is not None:
-            self.master.grab_window.destroy()
-            self.master.grab_window = None
 
-    # TODO on close reset the master's checkbox, method for obtaining text from grab window, add custom titlebar
+        # Click position on title bar to be used for dragging.
+        self.x_pos = 0
+        self.y_pos = 0
+        make_title_bar(self)
+
+        self.geometry(self.master.grab_window.return_size())
+
+    def reset_master_box(self):
+        """
+        On close, reset master's checkbox to match state of window (closed).
+        """
+        self.master.text_window_boolean.set(False)
+        self.destroy()
+
+    # TODO method for obtaining text from grab window, make spawn dimensions same as grab window, remove text from grab window when checked
 
 
 class OverlayWindow(tk.Toplevel):
@@ -359,6 +377,7 @@ class OverlayWindow(tk.Toplevel):
     """
 
     def __init__(self, master):
+
         tk.Toplevel.__init__(self, master)
 
         # Clear old screen grab windows if any exist.
@@ -442,7 +461,7 @@ class GrabWindow(tk.Toplevel):
         self.attributes('-transparentcolor', 'white', '-topmost', True)
         self.config(bg='white')
         self.cv = tk.Canvas(self, bg='white', highlightthickness=0, width=self.x_width, height=self.y_height)
-        self.cv_text = self.cv.create_text(self.x_width//2, self.y_height//2, text=" ", fill="black")
+        self.cv_text = self.cv.create_text(self.x_width // 2, self.y_height // 2, text=" ", fill="black")
         self.cv.pack()
         hwnd = self.cv.winfo_id()
         set_click_through(hwnd)
@@ -463,6 +482,12 @@ class GrabWindow(tk.Toplevel):
             print(self.master.target_lang.get())
             translation = self.trans.translate(text, dest=self.master.target_lang.get(), src='auto')
             self.cv.itemconfig(self.cv_text, text=translation.text)
+
+    def return_size(self):
+        """
+        Use for making translation text box if user has that option selected in main program.
+        """
+        return str(self.x_width) + "x" + str(self.y_height) + "+" + str(self.x_min) + "+" + str(self.y_min)
 
     def screen_grab_loop(self):
         while stop_threads is False:
@@ -563,7 +588,7 @@ class OptionsWindow(tk.Toplevel):
         self.thresholding_label = ttk.Label(self.adjustment_frame,
                                             text=f"{int(self.thresholding_input_slide.get())}")
         self.thresholding_input_slide.config(command=lambda x: [self.update_display(self.thresholding_label,
-                                                                self.thresholding_input_slide.get()),
+                                                                                    self.thresholding_input_slide.get()),
                                                                 self.refresh_image()])
         thresholding_first_label.pack()
         self.thresholding_label.pack()
