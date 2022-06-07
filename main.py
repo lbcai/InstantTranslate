@@ -67,6 +67,11 @@ def set_click_through(hwnd):
     except Exception:
         pass
 
+def make_titlebar(self):
+    """
+    Use to make custom titlebar that matches visual theme of the program.
+    """
+
 
 class IntegerEntry(ttk.Entry):
     """
@@ -177,12 +182,16 @@ class App(tk.Toplevel):
         self.options_window = None
         # Thread for image grab window
         self.t = None
+        # Separate window for translation text
+        self.text_window = None
         # Boolean for use thresholding & other options on image
         self.thresholding_boolean = False
         self.threshold = '100'
         self.inversion_boolean = False
         self.resize_boolean = False
         self.resize = '1'
+        self.text_window_boolean = tk.BooleanVar()
+        self.text_window_boolean.set(False)
 
         # Create custom window title bar to match theme.
         self.overrideredirect(True)
@@ -235,6 +244,11 @@ class App(tk.Toplevel):
         self.time_selection_entry.pack()
         time_selection_frame.pack()
 
+        self.window_checkbox = ttk.Checkbutton(self, text="Text Window",
+                                          variable=self.text_window_boolean, onvalue=True, offvalue=False,
+                                          command=self.text_window_generate)
+        self.window_checkbox.pack()
+
         # Add screen grab button and bind click + drag motion to it.
         button_frame = ttk.Frame(self)
         area_select_button = ttk.Button(button_frame, text="Select Area", command=self.screen_grab)
@@ -251,6 +265,15 @@ class App(tk.Toplevel):
 
         button_frame.pack(padx=5, pady=5)
 
+    def text_window_generate(self):
+        """
+        Open or close separate window to display translated text.
+        """
+        if self.text_window_boolean.get() is False:
+            self.text_window.destroy()
+        else:
+            self.text_window = TextWindow(self)
+
     def close_other_windows(self):
         """
         From main app window, close other extra windows and close threads.
@@ -262,6 +285,8 @@ class App(tk.Toplevel):
             self.options_button_disable(True)
         if self.options_window is not None and self.options_window.winfo_exists():
             self.options_window.destroy()
+        if self.text_window is not None and self.text_window.winfo_exists():
+            self.text_window.destroy()
 
     def options_button_disable(self, boolean):
         if boolean is False:
@@ -310,6 +335,20 @@ class App(tk.Toplevel):
         self.t = Thread(target=GrabWindow.screen_grab_loop, args=(self.grab_window,))
         if not self.t.is_alive():
             self.t.start()
+
+
+class TextWindow(tk.Toplevel):
+    """
+    Window to display translated text if user selects option to use.
+    """
+    def __init__(self, master):
+        tk.Toplevel.__init__(self, master)
+        # Clear old windows if any exist.
+        if self.master.grab_window is not None:
+            self.master.grab_window.destroy()
+            self.master.grab_window = None
+
+    # TODO on close reset the master's checkbox, method for obtaining text from grab window, add custom titlebar
 
 
 class OverlayWindow(tk.Toplevel):
