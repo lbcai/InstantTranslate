@@ -253,7 +253,7 @@ class App(tk.Toplevel):
 
         self.window_checkbox = ttk.Checkbutton(self, text="Text Window",
                                                variable=self.text_window_boolean, onvalue=True, offvalue=False,
-                                               command=self.text_window_generate)
+                                               command=self.text_window_generate, state='disabled')
         self.window_checkbox.pack()
 
         # Add screen grab button and bind click + drag motion to it.
@@ -296,10 +296,15 @@ class App(tk.Toplevel):
             self.text_window.destroy()
 
     def options_button_disable(self, boolean):
+        """
+        Disable options menu and text window checkbox unless grab window exists.
+        """
         if boolean is False:
             self.options_button.config(state='normal')
+            self.window_checkbox.config(state='normal')
         else:
             self.options_button.config(state='disabled')
+            self.window_checkbox.config(state='disabled')
 
     def click_window(self, event):
         """
@@ -352,12 +357,26 @@ class TextWindow(tk.Toplevel):
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
 
+        self.geometry(self.master.grab_window.return_size())
+
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
         self.y_pos = 0
         make_title_bar(self)
 
-        self.geometry(self.master.grab_window.return_size())
+    def click_window(self, event):
+        """
+        Helper method for move_window to allow title bar to be dragged by click location and
+        not by top left corner.
+        """
+        self.x_pos = event.x
+        self.y_pos = event.y
+
+    def move_window(self, event):
+        """
+        Allow the window to be dragged by the title bar despite using overrideredirect.
+        """
+        self.geometry(f'+{event.x_root - self.x_pos}+{event.y_root - self.y_pos}')
 
     def reset_master_box(self):
         """
@@ -366,7 +385,7 @@ class TextWindow(tk.Toplevel):
         self.master.text_window_boolean.set(False)
         self.destroy()
 
-    # TODO method for obtaining text from grab window, make spawn dimensions same as grab window, remove text from grab window when checked
+    # TODO method for obtaining text from grab window, fix title bar position
 
 
 class OverlayWindow(tk.Toplevel):
@@ -478,10 +497,16 @@ class GrabWindow(tk.Toplevel):
         GrabWindow.translate(self, text)
 
     def translate(self, text):
+        """
+        Apply translation to grab window unless the user selected a separate window to hold the translation.
+        Then it will be applied there.
+        """
         if text is not None:
-            print(self.master.target_lang.get())
             translation = self.trans.translate(text, dest=self.master.target_lang.get(), src='auto')
-            self.cv.itemconfig(self.cv_text, text=translation.text)
+            if self.master.text_window_boolean.get() is False:
+                self.cv.itemconfig(self.cv_text, text=translation.text)
+            else:
+                self.cv.itemconfig(self.cv_text, text='')
 
     def return_size(self):
         """
