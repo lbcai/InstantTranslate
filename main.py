@@ -370,10 +370,12 @@ class TextWindow(tk.Toplevel):
         self.y_pos = 0
         make_title_bar(self)
 
-        language_frame = ttk.Frame(self)
-        language_label = ttk.Label(language_frame, text="Test")
-        language_label.pack()
-        language_frame.pack(padx=5, pady=5, fill=tk.BOTH)
+        self.translation = self.master.grab_window.get_translation()
+
+        text_frame = ttk.Frame(self)
+        self.text_label = ttk.Label(text_frame, text=self.translation)
+        self.text_label.pack()
+        text_frame.pack(padx=5, pady=5, fill=tk.BOTH)
 
     def reset_master_box(self):
         """
@@ -382,7 +384,9 @@ class TextWindow(tk.Toplevel):
         self.master.text_window_boolean.set(False)
         self.destroy()
 
-    # TODO method for obtaining text from grab window, fix title bar position
+    def update(self):
+        self.translation = self.master.grab_window.get_translation()
+        self.text_label.config(text=self.translation)
 
 
 class OverlayWindow(tk.Toplevel):
@@ -484,6 +488,7 @@ class GrabWindow(tk.Toplevel):
 
         # Spawn a translator
         self.trans = Translator()
+        self.translation = ''
 
         # Make a raw image for viewing and an img for running translator on to prevent logic shenanigans with
         # options checkboxes.
@@ -493,15 +498,19 @@ class GrabWindow(tk.Toplevel):
         text = pt.image_to_string(self.img)
         GrabWindow.translate(self, text)
 
+    def get_translation(self):
+        return self.translation
+
     def translate(self, text):
         """
         Apply translation to grab window unless the user selected a separate window to hold the translation.
         Then it will be applied there.
         """
         if text is not None:
-            translation = self.trans.translate(text, dest=self.master.target_lang.get(), src='auto')
+            translation_obj = self.trans.translate(text, dest=self.master.target_lang.get(), src='auto')
+            self.translation = translation_obj.text
             if self.master.text_window_boolean.get() is False:
-                self.cv.itemconfig(self.cv_text, text=translation.text)
+                self.cv.itemconfig(self.cv_text, text=self.translation)
             else:
                 self.cv.itemconfig(self.cv_text, text='')
 
@@ -541,6 +550,9 @@ class GrabWindow(tk.Toplevel):
 
                 if self.master.inversion_boolean is True:
                     self.img = ImageChops.invert(self.img)
+
+                if self.master.text_window_boolean.get() is True:
+                    self.master.text_window.update()  # ugly but wanted to avoid more threads...
 
                 text = pt.image_to_string(self.img)
                 GrabWindow.translate(self, text)
