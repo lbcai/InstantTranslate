@@ -70,12 +70,12 @@ def set_click_through(hwnd):
 
 def make_title_bar(self):
     """
-    Use to make custom titlebar that matches visual theme of the program.
+    Use to make custom title bar that matches visual theme of the program.
     """
     # Create custom window title bar to match theme.
     self.overrideredirect(True)
     title_bar = ttk.Frame(self, borderwidth=3)
-    # close root to close program
+    # close root to close program if on main window, else close window for toplevel windows
     if isinstance(self, App):
         close_button = ttk.Button(title_bar, text='X', width=1,
                                   command=lambda: [self.close_other_windows(), self.master.destroy(),
@@ -83,12 +83,16 @@ def make_title_bar(self):
     else:
         close_button = ttk.Button(title_bar, text='X', width=1,
                                   command=self.reset_master_box)
-    # minimize self through root
-    mini_button = ttk.Button(title_bar, text='__', width=1, command=self.master.iconify)
+
     window_title = ttk.Label(title_bar, text=title_string)
-    title_bar.pack(expand=1)
+    title_bar.pack(expand=False, fill=tk.X, side=tk.TOP)
     close_button.pack(side=tk.RIGHT)
-    mini_button.pack(side=tk.RIGHT)
+
+    # minimize self through root
+    if isinstance(self, App):
+        mini_button = ttk.Button(title_bar, text='__', width=1, command=self.master.iconify)
+        mini_button.pack(side=tk.RIGHT)
+
     window_title.pack(side=tk.LEFT)
     # Return drag functionality to custom title bar.
     window_title.bind('<B1-Motion>', lambda event: App.move_window(self, event))
@@ -187,7 +191,7 @@ class App(tk.Toplevel):
     """
     Main program window.
     * User can press a button to initiate area select mode.
-    * User can adjust opacity of select area.
+    * User can adjust opacity of select area. #TODO
     * User can select target language.
     * User can determine if they would like the translation to appear overlaid
       on the screen grab area or if they would like a separate window to read
@@ -356,27 +360,20 @@ class TextWindow(tk.Toplevel):
 
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
-
-        self.geometry(self.master.grab_window.return_size())
+        dimensions = self.master.grab_window.return_size().replace('x', '+')
+        dimensions_array = dimensions.split('+')
+        # Add headspace for title bar in window size
+        self.geometry(f'{dimensions_array[0]}x{int(dimensions_array[1])+36}+{dimensions_array[2]}+{int(dimensions_array[3])-36}')
 
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
         self.y_pos = 0
         make_title_bar(self)
 
-    def click_window(self, event):
-        """
-        Helper method for move_window to allow title bar to be dragged by click location and
-        not by top left corner.
-        """
-        self.x_pos = event.x
-        self.y_pos = event.y
-
-    def move_window(self, event):
-        """
-        Allow the window to be dragged by the title bar despite using overrideredirect.
-        """
-        self.geometry(f'+{event.x_root - self.x_pos}+{event.y_root - self.y_pos}')
+        language_frame = ttk.Frame(self)
+        language_label = ttk.Label(language_frame, text="Test")
+        language_label.pack()
+        language_frame.pack(padx=5, pady=5, fill=tk.BOTH)
 
     def reset_master_box(self):
         """
