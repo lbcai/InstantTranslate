@@ -107,6 +107,27 @@ def make_title_bar(self):
     separator_underline.pack(fill=tk.X, padx=5)
 
 
+def toggle_slider(boolean, slide):
+    """
+    Use to disable or enable horizontal sliders depending on user specification through checkboxes.
+    """
+    if boolean is True:
+        slide.config(state='enabled')
+    else:
+        slide.config(state='disabled')
+
+
+def update_display(label, boolean, tag="", int_flag=True):
+    """
+    Updates number displayed alongside horizontal slide bars.
+    Use int_flag to specify int or float conversions (floats will display with 1 decimal point).
+    """
+    if int_flag is True:
+        label.config(text=f"{tag}{int(boolean)}")
+    else:
+        label.config(text=f"{tag}{round(float(boolean), 1)}")
+
+
 class IntegerEntry(ttk.Entry):
     """
     Entry box that checks for integer input and overwrites invalid input.
@@ -212,6 +233,7 @@ class App(tk.Toplevel):
         self.overlay_window = None
         # Translate area that will remain on screen
         self.grab_window = None
+        self.grab_opacity = '0.5'
         # Options window for user to adjust image settings for text reading
         self.options_window = None
         # Thread for image grab window
@@ -255,10 +277,22 @@ class App(tk.Toplevel):
         self.time_selection_entry.pack()
         time_selection_frame.pack()
 
+        # Text box option instead of grab window option for text
         self.window_checkbox = ttk.Checkbutton(self, text="Text Window",
                                                variable=self.text_window_boolean, onvalue=True, offvalue=False,
                                                command=self.text_window_generate, state='disabled')
         self.window_checkbox.pack()
+
+        # Change opacity of grab window option
+        self.grab_opacity_slide = ttk.Scale(self, from_=0, to=1, orient='horizontal')  # Underscore intentional
+        self.grab_opacity_slide.set(self.grab_opacity)
+        self.grab_opacity_label = ttk.Label(self, text=f"Selection Opacity: {float(self.grab_opacity_slide.get())}")
+        self.grab_opacity_slide.config(command=lambda x: [update_display(self.grab_opacity_label,
+                                                                         self.grab_opacity_slide.get(),
+                                                                         tag="Selection Opacity: ", int_flag=False),
+                                                          self.update_grab_window_opacity()])
+        self.grab_opacity_label.pack()
+        self.grab_opacity_slide.pack()
 
         # Add screen grab button and bind click + drag motion to it.
         button_frame = ttk.Frame(self)
@@ -275,6 +309,13 @@ class App(tk.Toplevel):
         close_windows_button.pack()
 
         button_frame.pack(padx=5, pady=5)
+
+    def update_grab_window_opacity(self):
+        """
+        Change grab window opacity in real time with slider.
+        """
+        self.grab_opacity = self.grab_opacity_slide.get()
+        self.grab_window.attributes("-alpha", float(self.grab_opacity))
 
     def text_window_generate(self):
         """
@@ -363,7 +404,9 @@ class TextWindow(tk.Toplevel):
         dimensions = self.master.grab_window.return_size().replace('x', '+')
         dimensions_array = dimensions.split('+')
         # Add headspace for title bar in window size
-        self.geometry(f'{dimensions_array[0]}x{int(dimensions_array[1])+36}+{dimensions_array[2]}+{int(dimensions_array[3])-36}')
+        self.geometry(
+            f'{dimensions_array[0]}x{int(dimensions_array[1]) + 36}+'
+            f'{dimensions_array[2]}+{int(dimensions_array[3]) - 36}')
 
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
@@ -384,7 +427,7 @@ class TextWindow(tk.Toplevel):
         self.master.text_window_boolean.set(False)
         self.destroy()
 
-    def update(self):
+    def update_translation(self):
         self.translation = self.master.grab_window.get_translation()
         self.text_label.config(text=self.translation)
 
@@ -397,7 +440,6 @@ class OverlayWindow(tk.Toplevel):
     """
 
     def __init__(self, master):
-
         tk.Toplevel.__init__(self, master)
 
         # Clear old screen grab windows if any exist.
@@ -477,7 +519,7 @@ class GrabWindow(tk.Toplevel):
 
         # Set window transparent and add a canvas, then use set_click_through to make canvas
         # not interactable
-        self.attributes("-alpha", 0.5)
+        self.attributes("-alpha", float(self.master.grab_opacity))
         self.attributes('-transparentcolor', 'white', '-topmost', True)
         self.config(bg='white')
         self.cv = tk.Canvas(self, bg='white', highlightthickness=0, width=self.x_width, height=self.y_height)
@@ -552,7 +594,7 @@ class GrabWindow(tk.Toplevel):
                     self.img = ImageChops.invert(self.img)
 
                 if self.master.text_window_boolean.get() is True:
-                    self.master.text_window.update()  # ugly but wanted to avoid more threads...
+                    self.master.text_window.update_translation()  # ugly but wanted to avoid more threads...
 
                 text = pt.image_to_string(self.img)
                 GrabWindow.translate(self, text)
@@ -613,41 +655,39 @@ class OptionsWindow(tk.Toplevel):
         thresholding_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Thresholding",
                                                 variable=self.thresholding_boolean_var, onvalue=True, offvalue=False,
                                                 command=lambda: [self.refresh_image(),
-                                                                 self.toggle_slider(self.thresholding_boolean_var.get(),
-                                                                                    self.thresholding_input_slide)])
+                                                                 toggle_slider(self.thresholding_boolean_var.get(),
+                                                                               self.thresholding_input_slide)])
         thresholding_checkbox.pack()
         self.thresholding_input_slide = ttk.Scale(self.adjustment_frame, from_=0, to=100, orient='horizontal')
         self.thresholding_input_slide.set(self.master.threshold)
-        thresholding_first_label = ttk.Label(self.adjustment_frame, text="Threshold Value: ")
         self.thresholding_label = ttk.Label(self.adjustment_frame,
-                                            text=f"{int(self.thresholding_input_slide.get())}")
-        self.thresholding_input_slide.config(command=lambda x: [self.update_display(self.thresholding_label,
-                                                                                    self.thresholding_input_slide.get()),
+                                            text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
+        self.thresholding_input_slide.config(command=lambda x: [update_display(self.thresholding_label,
+                                                                               self.thresholding_input_slide.get(),
+                                                                               tag="Threshold Value: "),
                                                                 self.refresh_image()])
-        thresholding_first_label.pack()
         self.thresholding_label.pack()
         self.thresholding_input_slide.pack()
-        self.toggle_slider(self.thresholding_boolean_var.get(), self.thresholding_input_slide)
+        toggle_slider(self.thresholding_boolean_var.get(), self.thresholding_input_slide)
 
         # Resize
         resize_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Scale",
                                           variable=self.resize_boolean_var, onvalue=True, offvalue=False,
                                           command=lambda: [self.refresh_image(),
-                                                           self.toggle_slider(self.resize_boolean_var.get(),
-                                                                              self.resize_input_slide)])
+                                                           toggle_slider(self.resize_boolean_var.get(),
+                                                                         self.resize_input_slide)])
         resize_checkbox.pack()
         self.resize_input_slide = ttk.Scale(self.adjustment_frame, from_=1, to=8, orient='horizontal')
         self.resize_input_slide.set(self.master.resize)
-        resize_first_label = ttk.Label(self.adjustment_frame, text="Scale Multiplier: ")
         self.resize_label = ttk.Label(self.adjustment_frame,
-                                      text=f"{int(self.resize_input_slide.get())}")
-        self.resize_input_slide.config(command=lambda x: [self.update_display(self.resize_label,
-                                                                              self.resize_input_slide.get()),
+                                      text=f"Scale Multiplier: {int(self.resize_input_slide.get())}")
+        self.resize_input_slide.config(command=lambda x: [update_display(self.resize_label,
+                                                                         self.resize_input_slide.get(),
+                                                          tag="Scale Multiplier: "),
                                                           self.refresh_image()])
-        resize_first_label.pack()
         self.resize_label.pack()
         self.resize_input_slide.pack()
-        self.toggle_slider(self.resize_boolean_var.get(), self.resize_input_slide)
+        toggle_slider(self.resize_boolean_var.get(), self.resize_input_slide)
 
         # Invert
         self.inversion_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Invert",
@@ -669,15 +709,6 @@ class OptionsWindow(tk.Toplevel):
 
         # Actual first image spawn
         self.refresh_image()
-
-    def toggle_slider(self, boolean, slide):
-        if boolean is True:
-            slide.config(state='enabled')
-        else:
-            slide.config(state='disabled')
-
-    def update_display(self, label, boolean):
-        label.config(text=f"{int(boolean)}")
 
     def push_options(self):
         """
