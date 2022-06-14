@@ -212,7 +212,7 @@ class App(tk.Toplevel):
     """
     Main program window.
     * User can press a button to initiate area select mode.
-    * User can adjust opacity of select area. #TODO
+    * User can adjust opacity of select area.
     * User can select target language.
     * User can determine if they would like the translation to appear overlaid
       on the screen grab area or if they would like a separate window to read
@@ -284,13 +284,13 @@ class App(tk.Toplevel):
         self.window_checkbox.pack()
 
         # Change opacity of grab window option
-        self.grab_opacity_slide = ttk.Scale(self, from_=0, to=1, orient='horizontal')  # Underscore intentional
+        self.grab_opacity_slide = ttk.Scale(self, from_=0, to=1, orient='horizontal')
         self.grab_opacity_slide.set(self.grab_opacity)
         self.grab_opacity_label = ttk.Label(self, text=f"Selection Opacity: {float(self.grab_opacity_slide.get())}")
         self.grab_opacity_slide.config(command=lambda x: [update_display(self.grab_opacity_label,
                                                                          self.grab_opacity_slide.get(),
                                                                          tag="Selection Opacity: ", int_flag=False),
-                                                          self.update_grab_window_opacity()])
+                                                          self.update_grab_window_opacity()], state='disabled')
         self.grab_opacity_label.pack()
         self.grab_opacity_slide.pack()
 
@@ -342,14 +342,16 @@ class App(tk.Toplevel):
 
     def options_button_disable(self, boolean):
         """
-        Disable options menu and text window checkbox unless grab window exists.
+        Disable options menu, text window checkbox, opacity slider unless grab window exists.
         """
         if boolean is False:
             self.options_button.config(state='normal')
             self.window_checkbox.config(state='normal')
+            self.grab_opacity_slide.config(state='normal')
         else:
             self.options_button.config(state='disabled')
             self.window_checkbox.config(state='disabled')
+            self.grab_opacity_slide.config(state='disabled')
 
     def click_window(self, event):
         """
@@ -418,7 +420,7 @@ class TextWindow(tk.Toplevel):
         text_frame = ttk.Frame(self)
         self.text_label = ttk.Label(text_frame, text=self.translation)
         self.text_label.pack()
-        text_frame.pack(padx=5, pady=5, fill=tk.BOTH)
+        text_frame.pack(padx=5, pady=5, fill=tk.BOTH, expand=True)
 
     def reset_master_box(self):
         """
@@ -632,7 +634,7 @@ class OptionsWindow(tk.Toplevel):
         if limited_img_width > 400:
             limited_img_width = 400
         self.image_frame = ttk.Frame(self, height=limited_img_height, width=limited_img_width)  # Limit canvas size
-
+        # TODO FIX SLIDE BAR SPAWN
         # Scroll bar configs
         self.xbar = ttk.Scrollbar(self.image_frame, orient=tk.HORIZONTAL)
         self.ybar = ttk.Scrollbar(self.image_frame)
