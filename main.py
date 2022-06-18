@@ -36,6 +36,13 @@ for i in range(len(language_list)):
         language_list[i] = fixed_string
 
 
+def update_lang_dict():
+    j = 0
+    for key in LANGUAGES:
+        LANGUAGES[key] = language_list[j]
+        j += 1
+
+
 def stop_threads_true():
     """
     Exit all threads on program exit.
@@ -395,6 +402,10 @@ class App(tk.Toplevel):
         if not self.t.is_alive():
             self.t.start()
 
+# TODO any windows in the program over the translation spot should be hidden during screenshot
+# TODO get text window on taskbar
+# TODO respawn (or resize) text window on reset grab window
+# TODO test with text of different sizes
 
 class TextWindow(tk.Toplevel):
     """
@@ -407,7 +418,7 @@ class TextWindow(tk.Toplevel):
         dimensions_array = dimensions.split('+')
         # Add headspace for title bar in window size
         self.geometry(
-            f'{dimensions_array[0]}x{int(dimensions_array[1]) + 36}+'
+            f'{int(dimensions_array[0])*2}x{int(dimensions_array[1]) + 36}+'
             f'{dimensions_array[2]}+{int(dimensions_array[3]) - 36}')
 
         # Click position on title bar to be used for dragging.
@@ -416,11 +427,33 @@ class TextWindow(tk.Toplevel):
         make_title_bar(self)
 
         self.translation = self.master.grab_window.get_translation()
+        self.text = self.master.grab_window.get_text()
+        self.target_lang = ''
+        self.src_lang = ''
 
-        text_frame = ttk.Frame(self)
-        self.text_label = ttk.Label(text_frame, text=self.translation)
-        self.text_label.pack()
-        text_frame.pack(padx=5, pady=5, fill=tk.BOTH, expand=True)
+        main_frame = ttk.Frame(self)
+
+        text_frame = ttk.Frame(main_frame)
+        self.lang_label = ttk.Label(text_frame, text=self.src_lang)
+        self.lang_label.pack(side=tk.TOP)
+        self.text_label = ttk.Label(text_frame, text=self.text)
+        self.text_label.pack(side=tk.BOTTOM, pady=5)
+        text_frame.pack(padx=5, pady=5, fill=tk.BOTH, expand=True, side=tk.LEFT)
+
+        # Separator for looks
+        separator = tk.Frame(main_frame, width=1, borderwidth=0, bg='#373737')
+        separator.pack(fill=tk.Y, pady=5, side=tk.LEFT)
+        separator_underline = tk.Frame(main_frame, width=1, borderwidth=0, bg='#414141')
+        separator_underline.pack(fill=tk.Y, pady=5, side=tk.LEFT)
+
+        trans_frame = ttk.Frame(main_frame)
+        self.target_label = ttk.Label(trans_frame, text=self.target_lang)
+        self.target_label.pack(side=tk.TOP)
+        self.translation_label = ttk.Label(trans_frame, text=self.translation)
+        self.translation_label.pack(side=tk.BOTTOM, pady=5)
+        trans_frame.pack(padx=5, pady=5, fill=tk.BOTH, expand=True, side=tk.RIGHT)
+
+        main_frame.pack(fill=tk.BOTH, expand=True)
 
     def reset_master_box(self):
         """
@@ -430,8 +463,14 @@ class TextWindow(tk.Toplevel):
         self.destroy()
 
     def update_translation(self):
+        self.text = self.master.grab_window.get_text()
+        self.text_label.config(text=self.text)
         self.translation = self.master.grab_window.get_translation()
-        self.text_label.config(text=self.translation)
+        self.translation_label.config(text=self.translation)
+        self.target_lang = self.master.grab_window.get_target_lang()
+        self.target_label.config(text=self.target_lang)
+        self.src_lang = self.master.grab_window.get_src_lang()
+        self.lang_label.config(text=self.src_lang)
 
 
 class OverlayWindow(tk.Toplevel):
@@ -533,26 +572,37 @@ class GrabWindow(tk.Toplevel):
         # Spawn a translator
         self.trans = Translator()
         self.translation = ''
+        self.src_lang = ''
 
         # Make a raw image for viewing and an img for running translator on to prevent logic shenanigans with
         # options checkboxes.
         self.img_raw = ImageGrab.grab(bbox=(self.x_min, self.y_min, self.x_min + self.x_width, self.y_min +
                                             self.y_height))
         self.img = self.img_raw.copy()
-        text = pt.image_to_string(self.img)
-        GrabWindow.translate(self, text)
+        self.text = pt.image_to_string(self.img)
+        GrabWindow.translate(self)
 
     def get_translation(self):
         return self.translation
 
-    def translate(self, text):
+    def get_text(self):
+        return self.text
+
+    def get_target_lang(self):
+        return self.master.target_lang.get()
+
+    def get_src_lang(self):
+        return LANGUAGES[self.src_lang]
+
+    def translate(self):
         """
         Apply translation to grab window unless the user selected a separate window to hold the translation.
         Then it will be applied there.
         """
-        if text is not None:
-            translation_obj = self.trans.translate(text, dest=self.master.target_lang.get(), src='auto')
+        if self.text is not None:
+            translation_obj = self.trans.translate(self.text, dest=self.master.target_lang.get(), src='auto')
             self.translation = translation_obj.text
+            self.src_lang = translation_obj.src
             if self.master.text_window_boolean.get() is False:
                 self.cv.itemconfig(self.cv_text, text=self.translation)
             else:
@@ -598,8 +648,8 @@ class GrabWindow(tk.Toplevel):
                 if self.master.text_window_boolean.get() is True:
                     self.master.text_window.update_translation()  # ugly but wanted to avoid more threads...
 
-                text = pt.image_to_string(self.img)
-                GrabWindow.translate(self, text)
+                self.text = pt.image_to_string(self.img)
+                GrabWindow.translate(self)
             except RuntimeError:
                 break
             except _tkinter.TclError:
@@ -755,6 +805,8 @@ class OptionsWindow(tk.Toplevel):
 
 # TODO rotation, specify box for border removal, noise removal
 # TODO title bar icon
+# TODO non letter languages seem to have poor support (eg japanese, chinese) for image recognition. solution?
 
 if __name__ == '__main__':
+    update_lang_dict()
     root = Root()
