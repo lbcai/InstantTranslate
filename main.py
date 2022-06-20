@@ -414,12 +414,7 @@ class TextWindow(tk.Toplevel):
 
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
-        dimensions = self.master.grab_window.return_size().replace('x', '+')
-        dimensions_array = dimensions.split('+')
-        # Add headspace for title bar in window size
-        self.geometry(
-            f'{int(dimensions_array[0])*2}x{int(dimensions_array[1]) + 36}+'
-            f'{dimensions_array[2]}+{int(dimensions_array[3]) - 36}')
+        self.size()
 
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
@@ -454,6 +449,17 @@ class TextWindow(tk.Toplevel):
         trans_frame.pack(padx=5, pady=5, fill=tk.BOTH, expand=True, side=tk.RIGHT)
 
         main_frame.pack(fill=tk.BOTH, expand=True)
+
+    def size(self):
+        """
+        Set window dimensions.
+        """
+        dimensions = self.master.grab_window.return_size().replace('x', '+')
+        dimensions_array = dimensions.split('+')
+        # Add headspace for title bar in window size
+        self.geometry(
+            f'{int(dimensions_array[0]) * 2}x{int(dimensions_array[1]) + 36}+'
+            f'{dimensions_array[2]}+{int(dimensions_array[3]) - 36}')
 
     def reset_master_box(self):
         """
@@ -532,9 +538,12 @@ class OverlayWindow(tk.Toplevel):
 
     def mouse_up(self, event):
         """
-        Create window for screenshot location. Close overlay window.
+        Create window for screenshot location. Close overlay window. Resize text window if option is up.
         """
         App.create_grab_window(self.master, self.stored_values)
+        if self.master.text_window is not None:
+            if self.master.text_window.winfo_exists():
+                self.master.text_window.size()
 
 
 class GrabWindow(tk.Toplevel):
