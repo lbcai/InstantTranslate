@@ -99,6 +99,9 @@ def make_title_bar(self):
     if isinstance(self, App):
         mini_button = ttk.Button(title_bar, text='__', width=1, command=self.master.iconify)
         mini_button.pack(side=tk.RIGHT)
+    else:
+        mini_button = ttk.Button(title_bar, text='__', width=1, command=self.hidden_window.iconify)
+        mini_button.pack(side=tk.RIGHT)
 
     window_title.pack(side=tk.LEFT)
     # Return drag functionality to custom title bar.
@@ -403,9 +406,38 @@ class App(tk.Toplevel):
             self.t.start()
 
 # TODO any windows in the program over the translation spot should be hidden during screenshot
-# TODO get text window on taskbar
-# TODO respawn (or resize) text window on reset grab window
 # TODO test with text of different sizes
+
+
+class TextWindowHidden(tk.Toplevel):
+    """
+    Hidden window to make text window minimizable and show up on task bar.
+    """
+    def __init__(self, master):
+        tk.Toplevel.__init__(self, master)
+        self.attributes('-alpha', 0.0)
+        self.bind("<Unmap>", lambda event: self.on_iconify(event))
+        self.bind("<Destroy>", lambda event: self.on_destroy(event))
+        self.bind("<FocusIn>", lambda event: self.on_deiconify(event))
+
+    def on_destroy(self, event):
+        """
+        When hidden window is destroyed from taskbar, also destroy text window and reset master check box.
+        """
+        self.master.reset_master_box()
+
+    def on_deiconify(self, event):
+        """
+        Show main window if invisible root window is clicked from task bar.
+        """
+        self.master.deiconify()
+
+    def on_iconify(self, event):
+        """
+        Minimize main window if invisible root window is minimized.
+        """
+        self.master.withdraw()
+
 
 class TextWindow(tk.Toplevel):
     """
@@ -414,6 +446,9 @@ class TextWindow(tk.Toplevel):
 
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
+
+        self.hidden_window = TextWindowHidden(self)
+
         self.size()
 
         # Click position on title bar to be used for dragging.
