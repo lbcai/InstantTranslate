@@ -8,7 +8,9 @@ from win32gui import SetWindowLong, SetLayeredWindowAttributes
 from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
 # for image taking and text conversion
 from PIL import ImageGrab, ImageTk, ImageChops
-import pytesseract as pt
+
+import pytesseract as pt  # Using version 5.1.0.20220510
+
 # for running image taking while keeping program running
 from time import sleep
 from threading import Thread
@@ -34,6 +36,39 @@ for i in range(len(language_list)):
             broken_string[1] = broken_string[1].capitalize()
         fixed_string = broken_string[0] + " " + broken_string[1]
         language_list[i] = fixed_string
+
+# Dict of googletrans language codes as keys, pytesseract 3-letter codes as values
+language_map_pt_to_googletrans = {
+    'ar': 'ara',
+    'cs': 'ces',
+    'zh-cn': 'chi_sim',
+    'zh-tw': 'chi_tra',
+    'da': 'dan',
+    'de': 'deu',
+    'el': 'ell',
+    'en': 'eng',
+    'tl': 'fil',
+    'fi': 'fin',
+    'fr': 'fra',
+    'he': 'heb',
+    'hi': 'hin',
+    'it': 'ita',
+    'ja': 'jpn',
+    'ko': 'kor',
+    'lv': 'lav',
+    'lt': 'lit',
+    'ms': 'msa',
+    'nl': 'nld',
+    'no': 'nor',
+    'pl': 'pol',
+    'pt': 'por',
+    'ro': 'ron',
+    'ru': 'rus',
+    'es': 'spa',
+    'sv': 'swe',
+    'th': 'tha',
+    'vi': 'vie'
+}
 
 
 def update_lang_dict():
@@ -617,6 +652,7 @@ class GrabWindow(tk.Toplevel):
         self.trans = Translator()
         self.translation = ''
         self.src_lang = ''
+        self.lang_string = ''
 
         # Make a raw image for viewing and an img for running translator on to prevent logic shenanigans with
         # options checkboxes.
@@ -647,6 +683,7 @@ class GrabWindow(tk.Toplevel):
             translation_obj = self.trans.translate(self.text, dest=self.master.target_lang.get(), src='auto')
             self.translation = translation_obj.text
             self.src_lang = translation_obj.src
+            self.lang_string = language_map_pt_to_googletrans[self.src_lang]
             if self.master.text_window_boolean.get() is False:
                 self.cv.itemconfig(self.cv_text, text=self.translation)
             else:
@@ -692,7 +729,7 @@ class GrabWindow(tk.Toplevel):
                 if self.master.text_window_boolean.get() is True:
                     self.master.text_window.update_translation()  # ugly but wanted to avoid more threads...
 
-                self.text = pt.image_to_string(self.img)
+                self.text = pt.image_to_string(self.img, lang=self.lang_string)
                 GrabWindow.translate(self)
             except RuntimeError:
                 break
