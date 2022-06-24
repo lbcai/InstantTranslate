@@ -479,7 +479,6 @@ class TextWindow(tk.Toplevel):
     Window to display translated text if user selects option to use.
     """
     # TODO copy text button (find out how to copy text to clipboard)
-    # TODO fix scroll bars
     # TODO allow user to specify src language
 
     def __init__(self, master):
@@ -504,30 +503,30 @@ class TextWindow(tk.Toplevel):
         main_frame = ttk.Notebook(self)
         tab1 = ttk.Frame(main_frame)
         tab2 = ttk.Frame(main_frame)
-        main_frame.add(tab2, text='Translation')
+        main_frame.add(tab2, text='Translation')  # adding tab2 first because it's more relevant
         main_frame.add(tab1, text='Source Text')
 
-        canvas1 = tk.Canvas(tab1, bg='#464646', highlightthickness=0)
-        self.lang_label = ttk.Label(canvas1, text=self.src_lang)
+        self.lang_label = ttk.Label(tab1, text=self.src_lang)
         self.lang_label.pack(side=tk.TOP)
-        self.text_label = ttk.Label(canvas1, text=self.text)
+        scroll1 = ttk.Scrollbar(tab1, orient=tk.VERTICAL)
+        scroll1.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
+        self.text_label = tk.Text(tab1, bg='#464646', bd=0, cursor='arrow', font='TkDefaultFont',
+                                  fg='#a6a6a6', yscrollcommand=scroll1.set, insertbackground='#a6a6a6',
+                                  pady=5, padx=10)
         self.text_label.pack(pady=5)
-        scroll1 = ttk.Scrollbar(tab1, orient=tk.VERTICAL, command=canvas1.yview)
-        canvas1.config(yscrollcommand=scroll1.set)
-        scroll1.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas1.pack()
+        self.text_label.insert(tk.END, self.text)
 
-        canvas2 = tk.Canvas(tab2, bg='#464646', highlightthickness=0)
-        self.target_label = ttk.Label(canvas2, text=self.target_lang)
+        self.target_label = ttk.Label(tab2, text=self.target_lang)
         self.target_label.pack(side=tk.TOP)
-        self.translation_label = ttk.Label(canvas2, text=self.translation)
+        scroll2 = ttk.Scrollbar(tab2, orient=tk.VERTICAL)
+        scroll2.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
+        self.translation_label = tk.Text(tab2, bg='#464646', bd=0, cursor='arrow', font='TkDefaultFont',
+                                  fg='#a6a6a6', yscrollcommand=scroll1.set, insertbackground='#a6a6a6',
+                                  pady=5, padx=10)
         self.translation_label.pack(pady=5)
-        scroll2 = ttk.Scrollbar(tab2, orient=tk.VERTICAL, command=canvas2.yview)
-        canvas2.config(yscrollcommand=scroll2.set)
-        scroll2.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas2.pack()
+        self.translation_label.insert(tk.END, self.translation)
 
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.pack(fill=tk.BOTH, expand=True, pady=2)
 
     def size(self):
         """
@@ -549,9 +548,13 @@ class TextWindow(tk.Toplevel):
 
     def update_translation(self):
         self.text = self.master.grab_window.get_text()
-        self.text_label.config(text=self.text)
+        self.text_label.delete(1.0, tk.END)
+        self.text_label.insert(tk.END, self.text)
+
         self.translation = self.master.grab_window.get_translation()
-        self.translation_label.config(text=self.translation)
+        self.translation_label.delete(1.0, tk.END)
+        self.translation_label.insert(tk.END, self.translation)
+
         self.target_lang = self.master.grab_window.get_target_lang()
         self.target_label.config(text=self.target_lang)
         self.src_lang = self.master.grab_window.get_src_lang()
@@ -681,7 +684,10 @@ class GrabWindow(tk.Toplevel):
         return self.master.target_lang.get()
 
     def get_src_lang(self):
-        return LANGUAGES[self.src_lang]
+        try:
+            return LANGUAGES[self.src_lang]
+        except KeyError:
+            return 'en'
 
     def translate(self):
         """
@@ -692,7 +698,10 @@ class GrabWindow(tk.Toplevel):
             translation_obj = self.trans.translate(self.text, dest=self.master.target_lang.get(), src='auto')
             self.translation = translation_obj.text
             self.src_lang = translation_obj.src
-            self.lang_string = language_map_pt_to_googletrans[self.src_lang]
+            try:
+                self.lang_string = language_map_pt_to_googletrans[self.src_lang]
+            except KeyError:
+                self.lang_string = 'eng'
             if self.master.text_window_boolean.get() is False:
                 self.cv.itemconfig(self.cv_text, text=self.translation)
             else:
