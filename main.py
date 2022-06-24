@@ -23,7 +23,7 @@ stop_threads = False
 # pytesseract requires tesseract exe, location provided for bundling with pyinstaller package
 pt.pytesseract.tesseract_cmd = r'Tesseract-OCR\tesseract.exe'
 
-# List of languages (capitalized)
+# List of languages (capitalized) for use in main app window Combobox
 language_list = list(LANGUAGES.values())
 for i in range(len(language_list)):
     language_list[i] = language_list[i].capitalize()
@@ -478,6 +478,9 @@ class TextWindow(tk.Toplevel):
     """
     Window to display translated text if user selects option to use.
     """
+    # TODO copy text button (find out how to copy text to clipboard)
+    # TODO fix scroll bars
+    # TODO allow user to specify src language
 
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
@@ -491,32 +494,38 @@ class TextWindow(tk.Toplevel):
         self.y_pos = 0
         make_title_bar(self)
 
+        # Create text attributes
         self.translation = self.master.grab_window.get_translation()
         self.text = self.master.grab_window.get_text()
         self.target_lang = ''
         self.src_lang = ''
 
-        main_frame = ttk.Frame(self)
+        # Create tabs
+        main_frame = ttk.Notebook(self)
+        tab1 = ttk.Frame(main_frame)
+        tab2 = ttk.Frame(main_frame)
+        main_frame.add(tab2, text='Translation')
+        main_frame.add(tab1, text='Source Text')
 
-        text_frame = ttk.Frame(main_frame)
-        self.lang_label = ttk.Label(text_frame, text=self.src_lang)
+        canvas1 = tk.Canvas(tab1, bg='#464646', highlightthickness=0)
+        self.lang_label = ttk.Label(canvas1, text=self.src_lang)
         self.lang_label.pack(side=tk.TOP)
-        self.text_label = ttk.Label(text_frame, text=self.text)
-        self.text_label.pack(side=tk.BOTTOM, pady=5)
-        text_frame.pack(padx=5, pady=5, fill=tk.BOTH, expand=True, side=tk.LEFT)
+        self.text_label = ttk.Label(canvas1, text=self.text)
+        self.text_label.pack(pady=5)
+        scroll1 = ttk.Scrollbar(tab1, orient=tk.VERTICAL, command=canvas1.yview)
+        canvas1.config(yscrollcommand=scroll1.set)
+        scroll1.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas1.pack()
 
-        # Separator for looks
-        separator = tk.Frame(main_frame, width=1, borderwidth=0, bg='#373737')
-        separator.pack(fill=tk.Y, pady=5, side=tk.LEFT)
-        separator_underline = tk.Frame(main_frame, width=1, borderwidth=0, bg='#414141')
-        separator_underline.pack(fill=tk.Y, pady=5, side=tk.LEFT)
-
-        trans_frame = ttk.Frame(main_frame)
-        self.target_label = ttk.Label(trans_frame, text=self.target_lang)
+        canvas2 = tk.Canvas(tab2, bg='#464646', highlightthickness=0)
+        self.target_label = ttk.Label(canvas2, text=self.target_lang)
         self.target_label.pack(side=tk.TOP)
-        self.translation_label = ttk.Label(trans_frame, text=self.translation)
-        self.translation_label.pack(side=tk.BOTTOM, pady=5)
-        trans_frame.pack(padx=5, pady=5, fill=tk.BOTH, expand=True, side=tk.RIGHT)
+        self.translation_label = ttk.Label(canvas2, text=self.translation)
+        self.translation_label.pack(pady=5)
+        scroll2 = ttk.Scrollbar(tab2, orient=tk.VERTICAL, command=canvas2.yview)
+        canvas2.config(yscrollcommand=scroll2.set)
+        scroll2.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas2.pack()
 
         main_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -528,7 +537,7 @@ class TextWindow(tk.Toplevel):
         dimensions_array = dimensions.split('+')
         # Add headspace for title bar in window size
         self.geometry(
-            f'{int(dimensions_array[0]) * 2}x{int(dimensions_array[1]) + 36}+'
+            f'{dimensions_array[0]}x{int(dimensions_array[1]) + 36}+'
             f'{dimensions_array[2]}+{int(dimensions_array[3]) - 36}')
 
     def reset_master_box(self):
