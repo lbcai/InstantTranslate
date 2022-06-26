@@ -2,6 +2,7 @@
 import _tkinter
 import tkinter as tk
 from tkinter import ttk
+from tkinter.scrolledtext import ScrolledText
 from ttkthemes import ThemedTk
 # for click through screen grab window
 from win32gui import SetWindowLong, SetLayeredWindowAttributes
@@ -506,27 +507,39 @@ class TextWindow(tk.Toplevel):
         main_frame.add(tab2, text='Translation')  # adding tab2 first because it's more relevant
         main_frame.add(tab1, text='Source Text')
 
+        # Tab 1 (Source)
         self.lang_label = ttk.Label(tab1, text=self.src_lang)
         self.lang_label.pack(side=tk.TOP)
-        scroll1 = ttk.Scrollbar(tab1, orient=tk.VERTICAL)
-        scroll1.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
-        self.text_label = tk.Text(tab1, bg='#464646', bd=0, cursor='arrow', font='TkDefaultFont',
-                                  fg='#a6a6a6', yscrollcommand=scroll1.set, insertbackground='#a6a6a6',
-                                  pady=5, padx=10)
+
+        original_copy_button = ttk.Button(tab1, text='Copy Text', command=lambda: self.copy_to_clip(self.text))
+        original_copy_button.pack(side=tk.BOTTOM)
+
+        self.text_label = ScrolledText(tab1, width=50, height=50)
+
         self.text_label.pack(pady=5)
         self.text_label.insert(tk.END, self.text)
 
+        # Tab 2 (Translated)
         self.target_label = ttk.Label(tab2, text=self.target_lang)
         self.target_label.pack(side=tk.TOP)
         scroll2 = ttk.Scrollbar(tab2, orient=tk.VERTICAL)
         scroll2.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
+        translated_copy_button = ttk.Button(tab2, text='Copy Text', command=lambda: self.copy_to_clip(self.translation))
+        translated_copy_button.pack(side=tk.BOTTOM)
         self.translation_label = tk.Text(tab2, bg='#464646', bd=0, cursor='arrow', font='TkDefaultFont',
-                                  fg='#a6a6a6', yscrollcommand=scroll1.set, insertbackground='#a6a6a6',
+                                  fg='#a6a6a6', yscrollcommand=scroll2.set, insertbackground='#a6a6a6',
                                   pady=5, padx=10)
         self.translation_label.pack(pady=5)
         self.translation_label.insert(tk.END, self.translation)
 
         main_frame.pack(fill=tk.BOTH, expand=True, pady=2)
+
+    def copy_to_clip(self, text):
+        """
+        Allow user to press button and copy text to clipboard.
+        """
+        self.clipboard_clear()
+        self.clipboard_append(text)
 
     def size(self):
         """
