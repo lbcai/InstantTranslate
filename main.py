@@ -440,6 +440,7 @@ class App(tk.Toplevel):
         if not self.t.is_alive():
             self.t.start()
 
+
 # TODO any windows in the program over the translation spot should be hidden during screenshot
 # TODO test with text of different sizes
 
@@ -448,6 +449,7 @@ class TextWindowHidden(tk.Toplevel):
     """
     Hidden window to make text window minimizable and show up on task bar.
     """
+
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
         self.attributes('-alpha', 0.0)
@@ -531,8 +533,8 @@ class TextWindow(tk.Toplevel):
         translated_copy_button = ttk.Button(tab2, text='Copy Text', command=lambda: self.copy_to_clip(self.translation))
         translated_copy_button.pack(side=tk.BOTTOM, pady=5)
         self.translation_label = tk.Text(scroll_frame2, bg='#464646', bd=0, cursor='arrow', font='TkDefaultFont',
-                                  fg='#a6a6a6', yscrollcommand=scroll2.set, insertbackground='#a6a6a6',
-                                  padx=10)
+                                         fg='#a6a6a6', yscrollcommand=scroll2.set, insertbackground='#a6a6a6',
+                                         padx=10)
         self.translation_label.pack(pady=5)
         self.translation_label.insert(tk.END, self.translation)
         scroll_frame2.pack()
@@ -820,57 +822,58 @@ class OptionsWindow(tk.Toplevel):
 
         # Image adjustment settings - create checkboxes and fields
         # Thresholding
-        self.adjustment_frame = ttk.Frame(self)
-        thresholding_frame = ttk.Frame(self)
-        thresholding_frame.pack(side=tk.TOP)
+        adjustment_frame = ttk.Frame(self)
+        box_frame = ttk.Frame(adjustment_frame)
+        box_frame.pack(side=tk.LEFT, padx=5)
+        slide_frame = ttk.Frame(adjustment_frame)
+        slide_frame.pack(side=tk.RIGHT, padx=5)
 
-        self.thresholding_input_slide = ttk.Scale(thresholding_frame, from_=0, to=100, orient='horizontal')
+        self.thresholding_input_slide = ttk.Scale(slide_frame, from_=0, to=100, orient='horizontal')
         self.thresholding_input_slide.set(self.master.threshold)
-        self.thresholding_label = ttk.Label(thresholding_frame,
-                                            text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
-
-        self.thresholding_checkbox = ttk.Checkbutton(thresholding_frame, text=self.thresholding_label.cget("text"),
-                                                variable=self.thresholding_boolean_var, onvalue=True, offvalue=False,
-                                                command=lambda: [self.refresh_image(),
-                                                                 toggle_slider(self.thresholding_boolean_var.get(),
-                                                                               self.thresholding_input_slide)])
-        self.thresholding_checkbox.pack(side=tk.LEFT)
-
+        self.thresholding_checkbox = ttk.Checkbutton(box_frame,
+                                                     text=f"Threshold Value: {int(self.thresholding_input_slide.get())}",
+                                                     variable=self.thresholding_boolean_var, onvalue=True,
+                                                     offvalue=False, width=18,
+                                                     command=lambda: [self.refresh_image(),
+                                                                      toggle_slider(self.thresholding_boolean_var.get(),
+                                                                                    self.thresholding_input_slide)])
+        self.thresholding_checkbox.pack(side=tk.TOP, anchor=tk.W)
         self.thresholding_input_slide.config(command=lambda x: [update_display(self.thresholding_checkbox,
                                                                                self.thresholding_input_slide.get(),
                                                                                tag="Threshold Value: "),
                                                                 self.refresh_image()])
-        self.thresholding_input_slide.pack(side=tk.RIGHT)
+        self.thresholding_input_slide.pack(side=tk.TOP, anchor=tk.E, pady=3)
         toggle_slider(self.thresholding_boolean_var.get(), self.thresholding_input_slide)
 
         # Resize
-        resize_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Scale",
-                                          variable=self.resize_boolean_var, onvalue=True, offvalue=False,
-                                          command=lambda: [self.refresh_image(),
-                                                           toggle_slider(self.resize_boolean_var.get(),
-                                                                         self.resize_input_slide)])
-        resize_checkbox.pack()
-        self.resize_input_slide = ttk.Scale(self.adjustment_frame, from_=1, to=8, orient='horizontal')
+        self.resize_input_slide = ttk.Scale(slide_frame, from_=1, to=8, orient='horizontal')
         self.resize_input_slide.set(self.master.resize)
-        self.resize_label = ttk.Label(self.adjustment_frame,
-                                      text=f"Scale Multiplier: {int(self.resize_input_slide.get())}")
-        self.resize_input_slide.config(command=lambda x: [update_display(self.resize_label,
+        self.resize_checkbox = ttk.Checkbutton(box_frame,
+                                               text=f"Scale Multiplier: {int(self.resize_input_slide.get())}",
+                                               variable=self.resize_boolean_var, onvalue=True, offvalue=False,
+                                               width=16,
+                                               command=lambda: [self.refresh_image(),
+                                                                toggle_slider(self.resize_boolean_var.get(),
+                                                                              self.resize_input_slide)])
+        self.resize_checkbox.pack(side=tk.TOP, anchor=tk.W)
+        self.resize_input_slide.config(command=lambda x: [update_display(self.resize_checkbox,
                                                                          self.resize_input_slide.get(),
-                                                          tag="Scale Multiplier: "),
+                                                                         tag="Scale Multiplier: "),
                                                           self.refresh_image()])
-        self.resize_label.pack()
-        self.resize_input_slide.pack()
+        self.resize_input_slide.pack(side=tk.TOP, anchor=tk.E, pady=3)
         toggle_slider(self.resize_boolean_var.get(), self.resize_input_slide)
 
         # Invert
-        self.inversion_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Invert",
+        adjustment_frame2 = ttk.Frame(self)
+        self.inversion_checkbox = ttk.Checkbutton(adjustment_frame2, text="Invert",
                                                   variable=self.inversion_boolean_var, onvalue=True, offvalue=False,
                                                   command=self.refresh_image)
         self.inversion_checkbox.pack()
-        self.adjustment_frame.pack(pady=10)
+        adjustment_frame.pack()
+        adjustment_frame2.pack()
 
         buttons_frame = ttk.Frame(self)
-        buttons_frame.pack()
+        buttons_frame.pack(pady=3)
         # Button to update settings
         save_button = ttk.Button(buttons_frame, text="Save", command=lambda: [self.push_options(), self.destroy()])
         save_button.pack(side=tk.LEFT)
