@@ -478,7 +478,7 @@ class TextWindow(tk.Toplevel):
     """
     Window to display translated text if user selects option to use.
     """
-    # TODO copy text button (find out how to copy text to clipboard)
+
     # TODO allow user to specify src language
 
     def __init__(self, master):
@@ -821,22 +821,26 @@ class OptionsWindow(tk.Toplevel):
         # Image adjustment settings - create checkboxes and fields
         # Thresholding
         self.adjustment_frame = ttk.Frame(self)
-        thresholding_checkbox = ttk.Checkbutton(self.adjustment_frame, text="Thresholding",
+        thresholding_frame = ttk.Frame(self)
+        thresholding_frame.pack(side=tk.TOP)
+
+        self.thresholding_input_slide = ttk.Scale(thresholding_frame, from_=0, to=100, orient='horizontal')
+        self.thresholding_input_slide.set(self.master.threshold)
+        self.thresholding_label = ttk.Label(thresholding_frame,
+                                            text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
+
+        self.thresholding_checkbox = ttk.Checkbutton(thresholding_frame, text=self.thresholding_label.cget("text"),
                                                 variable=self.thresholding_boolean_var, onvalue=True, offvalue=False,
                                                 command=lambda: [self.refresh_image(),
                                                                  toggle_slider(self.thresholding_boolean_var.get(),
                                                                                self.thresholding_input_slide)])
-        thresholding_checkbox.pack()
-        self.thresholding_input_slide = ttk.Scale(self.adjustment_frame, from_=0, to=100, orient='horizontal')
-        self.thresholding_input_slide.set(self.master.threshold)
-        self.thresholding_label = ttk.Label(self.adjustment_frame,
-                                            text=f"Threshold Value: {int(self.thresholding_input_slide.get())}")
-        self.thresholding_input_slide.config(command=lambda x: [update_display(self.thresholding_label,
+        self.thresholding_checkbox.pack(side=tk.LEFT)
+
+        self.thresholding_input_slide.config(command=lambda x: [update_display(self.thresholding_checkbox,
                                                                                self.thresholding_input_slide.get(),
                                                                                tag="Threshold Value: "),
                                                                 self.refresh_image()])
-        self.thresholding_label.pack()
-        self.thresholding_input_slide.pack()
+        self.thresholding_input_slide.pack(side=tk.RIGHT)
         toggle_slider(self.thresholding_boolean_var.get(), self.thresholding_input_slide)
 
         # Resize
@@ -863,7 +867,7 @@ class OptionsWindow(tk.Toplevel):
                                                   variable=self.inversion_boolean_var, onvalue=True, offvalue=False,
                                                   command=self.refresh_image)
         self.inversion_checkbox.pack()
-        self.adjustment_frame.pack()
+        self.adjustment_frame.pack(pady=10)
 
         buttons_frame = ttk.Frame(self)
         buttons_frame.pack()
