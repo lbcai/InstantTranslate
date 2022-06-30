@@ -293,6 +293,10 @@ class App(tk.Toplevel):
         self.resize = '1'
         self.text_window_boolean = tk.BooleanVar()
         self.text_window_boolean.set(False)
+        self.src_lang = tk.StringVar(self)
+        self.src_lang.set('Auto')
+        self.src_lang_boolean = tk.BooleanVar()
+        self.src_lang_boolean.set(False)
 
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
@@ -312,6 +316,16 @@ class App(tk.Toplevel):
                                          values=language_list)
         language_label.pack()
         language_dropdown.pack()
+
+        # Checkbox if user wants to specify src language
+        self.src_lang_checkbox = ttk.Checkbutton(language_frame, text="Translate from:",
+                                                 variable=self.src_lang_boolean, onvalue=True, offvalue=False,
+                                                 command=self.toggle_src_lang_dropdown)
+        self.src_lang_checkbox.pack()
+        self.src_lang_dropdown = ttk.Combobox(language_frame, state='disabled', textvariable=self.src_lang,
+                                              values=language_list)
+        self.src_lang_dropdown.pack()
+
         language_frame.pack(padx=5, pady=5)
 
         # Add time interval selection for grab window.
@@ -354,6 +368,13 @@ class App(tk.Toplevel):
         close_windows_button.pack()
 
         button_frame.pack(padx=5, pady=5)
+
+    def toggle_src_lang_dropdown(self):
+        if self.src_lang_boolean.get() is True:
+            self.src_lang_dropdown.config(state='readonly')
+        else:
+            self.src_lang_dropdown.config(state='disabled')
+            self.src_lang.set('Auto')
 
     def update_grab_window_opacity(self):
         """
@@ -480,8 +501,6 @@ class TextWindow(tk.Toplevel):
     """
     Window to display translated text if user selects option to use.
     """
-
-    # TODO allow user to specify src language
 
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
@@ -684,6 +703,7 @@ class GrabWindow(tk.Toplevel):
         self.trans = Translator()
         self.translation = ''
         self.src_lang = ''
+        # 3-letter string for tesseract
         self.lang_string = ''
 
         # Make a raw image for viewing and an img for running translator on to prevent logic shenanigans with
@@ -715,7 +735,14 @@ class GrabWindow(tk.Toplevel):
         Then it will be applied there.
         """
         if self.text is not None:
-            translation_obj = self.trans.translate(self.text, dest=self.master.target_lang.get(), src='auto')
+            if self.master.src_lang_boolean.get() is False:
+                translation_obj = self.trans.translate(self.text,
+                                                       dest=self.master.target_lang.get(), src='Auto')
+            else:
+                translation_obj = self.trans.translate(self.text,
+                                                       dest=self.master.target_lang.get(),
+                                                       src=self.master.src_lang.get())
+            # TODO bug when raw language is in non UTF8 characters - data lost and nothing sent to translate
             self.translation = translation_obj.text
             self.src_lang = translation_obj.src
             try:
