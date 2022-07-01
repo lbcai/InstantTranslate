@@ -328,6 +328,14 @@ class App(tk.Toplevel):
 
         language_frame.pack(padx=5, pady=5)
 
+        # Divider
+        separator_frame = tk.Frame(self)
+        separator = tk.Frame(separator_frame, height=1, borderwidth=0, bg='#373737')
+        separator.pack(fill=tk.X)
+        separator_underline = tk.Frame(separator_frame, height=1, borderwidth=0, bg='#414141')
+        separator_underline.pack(fill=tk.X)
+        separator_frame.pack(fill=tk.X, pady=10, padx=5)
+
         # Add time interval selection for grab window.
         time_selection_frame = ttk.Frame(self)
         time_selection_label = ttk.Label(time_selection_frame, text="Image Sample Interval (sec):")
