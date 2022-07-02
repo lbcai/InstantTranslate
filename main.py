@@ -472,7 +472,9 @@ class App(tk.Toplevel):
 
 # TODO any windows in the program over the translation spot should be hidden during screenshot
 # TODO test with text of different sizes
-
+# TODO fix key error with some languages (match up the dicts)
+# TODO still didn't fix the persisting program bug
+# TODO stop combobox arrow lighting up when not enabled
 
 class TextWindowHidden(tk.Toplevel):
     """
@@ -577,14 +579,20 @@ class TextWindow(tk.Toplevel):
 
     def size(self):
         """
-        Set window dimensions.
+        Set window dimensions. Minimum height and width set based on widgets in window and selection size.
         """
         dimensions = self.master.grab_window.return_size().replace('x', '+')
         dimensions_array = dimensions.split('+')
-        # Add headspace for title bar in window size
+        # Add headspace for title bar, other things, tabs in window size
+        dimensions_array[0] = int(dimensions_array[0])
+        dimensions_array[1] = int(dimensions_array[1])
+        if dimensions_array[0] < 155:
+            dimensions_array[0] = 155
+        if dimensions_array[1] < 138:
+            dimensions_array[1] = 138 + dimensions_array[1]
         self.geometry(
-            f'{dimensions_array[0]}x{int(dimensions_array[1]) + 36}+'
-            f'{dimensions_array[2]}+{int(dimensions_array[3]) - 36}')
+            f'{dimensions_array[0]}x{dimensions_array[1]}+'
+            f'{dimensions_array[2]}+{dimensions_array[3]}')
 
     def reset_master_box(self):
         """
@@ -735,7 +743,7 @@ class GrabWindow(tk.Toplevel):
         try:
             return LANGUAGES[self.src_lang]
         except KeyError:
-            return 'en'
+            return 'English'
 
     def translate(self):
         """
@@ -747,10 +755,12 @@ class GrabWindow(tk.Toplevel):
                 translation_obj = self.trans.translate(self.text,
                                                        dest=self.master.target_lang.get(), src='Auto')
             else:
+                if self.text == '':
+                    self.text = self.master.src_lang.get()
                 translation_obj = self.trans.translate(self.text,
                                                        dest=self.master.target_lang.get(),
                                                        src=self.master.src_lang.get())
-            # TODO bug when raw language is in non UTF8 characters - data lost and nothing sent to translate
+
             self.translation = translation_obj.text
             self.src_lang = translation_obj.src
             try:
@@ -964,7 +974,7 @@ class OptionsWindow(tk.Toplevel):
 
 # TODO rotation, specify box for border removal, noise removal
 # TODO title bar icon
-# TODO non letter languages seem to have poor support (eg japanese, chinese) for image recognition. solution?
+
 
 if __name__ == '__main__':
     update_lang_dict()
