@@ -471,10 +471,11 @@ class App(tk.Toplevel):
 
 
 # TODO any windows in the program over the translation spot should be hidden during screenshot
-# TODO test with text of different sizes
-# TODO fix key error with some languages (match up the dicts)
-# TODO still didn't fix the persisting program bug
+# TODO test with text of different sizes - works in english
+# TODO make the dropdown of languages match the available ones in the top dict
+# TODO still didn't fix the persisting program bug (closing during the right time of the thread loop gets it stuck?)
 # TODO stop combobox arrow lighting up when not enabled
+# TODO when text box open with selection open if make new selection do not respawn text box? or respawn in same spot (if moved)
 
 class TextWindowHidden(tk.Toplevel):
     """
@@ -764,7 +765,7 @@ class GrabWindow(tk.Toplevel):
             self.translation = translation_obj.text
             self.src_lang = translation_obj.src
             try:
-                self.lang_string = language_map_pt_to_googletrans[self.src_lang]
+                self.lang_string = language_map_pt_to_googletrans[self.src_lang.lower()]
             except KeyError:
                 self.lang_string = 'eng'
             if self.master.text_window_boolean.get() is False:
