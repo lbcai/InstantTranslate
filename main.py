@@ -36,10 +36,15 @@ for i in range(len(language_list)):
             broken_string[1] = broken_string[1].capitalize()
         fixed_string = broken_string[0] + " " + broken_string[1]
         language_list[i] = fixed_string
-
+# albanian, armenian, basque
 # Dict of googletrans language codes as keys, pytesseract 3-letter codes as values
 language_map_pt_to_googletrans = {
+    'af': 'afr',
+    'am': 'amh',
     'ar': 'ara',
+    'az': 'aze',
+    'be': 'bel',
+    'bn': 'ben',
     'cs': 'ces',
     'zh-cn': 'chi_sim',
     'zh-tw': 'chi_tra',
@@ -764,6 +769,7 @@ class GrabWindow(tk.Toplevel):
 
             self.translation = translation_obj.text
             self.src_lang = translation_obj.src
+            print(self.src_lang.lower())
             try:
                 self.lang_string = language_map_pt_to_googletrans[self.src_lang.lower()]
             except KeyError:
