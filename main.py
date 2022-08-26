@@ -24,62 +24,131 @@ stop_threads = False
 pt.pytesseract.tesseract_cmd = r'Tesseract-OCR\tesseract.exe'
 
 # List of languages (capitalized) for use in main app window Combobox
-language_list = list(LANGUAGES.values())
-for i in range(len(language_list)):
-    language_list[i] = language_list[i].capitalize()
-    if " " in language_list[i]:
-        broken_string = language_list[i].split()
-        if "(" in broken_string[1]:
-            broken_string[1] = broken_string[1][1::].capitalize()
-            broken_string[1] = "(" + broken_string[1]
+old_language_list = list(LANGUAGES.values())
+exclusion_list = ['Albanian', 'Armenian', 'Basque', 'Chichewa', 'Croatian', 'Hausa', 'Hawaiian', 'Hmong', 'Igbo',
+                  'Malagasy', 'Odia', 'Samoan', 'Sesotho', 'Shona', 'Somali', 'Xhosa']
+language_list = []
+for i in range(len(old_language_list)):
+    old_language_list[i] = old_language_list[i].capitalize()
+    if old_language_list[i] not in exclusion_list:
+        if " " in old_language_list[i]:
+            broken_string = old_language_list[i].split()
+            if "(" in broken_string[1]:
+                broken_string[1] = broken_string[1][1::].capitalize()
+                broken_string[1] = "(" + broken_string[1]
+            else:
+                broken_string[1] = broken_string[1].capitalize()
+            fixed_string = broken_string[0] + " " + broken_string[1]
+            language_list.append(fixed_string)
         else:
-            broken_string[1] = broken_string[1].capitalize()
-        fixed_string = broken_string[0] + " " + broken_string[1]
-        language_list[i] = fixed_string
-# albanian, armenian, basque
+            if old_language_list[i] == 'Hebrew':
+                if old_language_list[i-1] != 'Hebrew':
+                    language_list.append(old_language_list[i])
+            else:
+                language_list.append(old_language_list[i])
+
 # Dict of googletrans language codes as keys, pytesseract 3-letter codes as values
 language_map_pt_to_googletrans = {
-    'af': 'afr',
-    'am': 'amh',
-    'ar': 'ara',
-    'az': 'aze',
-    'be': 'bel',
-    'bn': 'ben',
-    'cs': 'ces',
-    'zh-cn': 'chi_sim',
-    'zh-tw': 'chi_tra',
-    'da': 'dan',
-    'de': 'deu',
-    'el': 'ell',
-    'en': 'eng',
-    'tl': 'fil',
-    'fi': 'fin',
-    'fr': 'fra',
-    'he': 'heb',
-    'hi': 'hin',
-    'it': 'ita',
-    'ja': 'jpn',
-    'ko': 'kor',
-    'lv': 'lav',
-    'lt': 'lit',
-    'ms': 'msa',
-    'nl': 'nld',
-    'no': 'nor',
-    'pl': 'pol',
-    'pt': 'por',
-    'ro': 'ron',
-    'ru': 'rus',
-    'es': 'spa',
-    'sv': 'swe',
-    'th': 'tha',
-    'vi': 'vie'
+    'af': 'afr',  # Afrikaans
+    'am': 'amh',  # Amharic
+    'ar': 'ara',  # Arabic
+    'az': 'aze',  # Azerbaijani
+    'be': 'bel',  # Belarusian
+    'bn': 'ben',  # Bengali
+    'bs': 'bos',  # Bosnian
+    'bg': 'bul',  # Bulgarian
+    'ca': 'cat',  # Catalan, Valencian
+    'ceb': 'ceb',  # Cebuano
+    'cs': 'ces',  # Czech
+    'co': 'cos',  # Corsican
+    'cy': 'cym',  # Welsh
+    'zh-cn': 'chi_sim',  # Chinese Simplified
+    'zh-tw': 'chi_tra',  # Chinese Traditional
+    'da': 'dan',  # Danish
+    'de': 'deu',  # German
+    'eo': 'epo',  # Esperanto
+    'el': 'ell',  # Greek
+    'en': 'eng',  # English
+    'et': 'est',  # Estonian
+    'tl': 'fil',  # Filipino
+    'fa': 'fas',  # Persian
+    'fi': 'fin',  # Finnish
+    'fr': 'fra',  # French
+    'fy': 'fry',  # Western Frisian
+    'ga': 'gle',  # Irish
+    'gd': 'gla',  # Scots Gaelic
+    'gl': 'glg',  # Galician
+    'gu': 'guj',  # Gujarati
+    'ka': 'kat',  # Georgian
+    'ht': 'hat',  # Haitian Creole
+    'iw': 'heb',  # Hebrew
+    'hi': 'hin',  # Hindi
+    'hu': 'hun',  # Hungarian
+    'is': 'isl',  # Icelandic
+    'id': 'ind',  # Indonesian
+    'it': 'ita',  # Italian
+    'ja': 'jpn',  # Japanese
+    'jw': 'jav',  # Javanese
+    'kn': 'kan',  # Kannada
+    'kk': 'kaz',  # Kazakh
+    'km': 'khm',  # Central Khmer
+    'ko': 'kor',  # Korean
+    'ku': 'kmr',  # Kurdish (Kurmanji, latin script)
+    'ky': 'kir',  # Kyrgyz
+    'lb': 'ltz',  # Luxembourgish
+    'lo': 'lao',  # Lao
+    'la': 'lat',  # Latin
+    'lv': 'lav',  # Latvian
+    'lt': 'lit',  # Lithuanian
+    'mk': 'mkd',  # Macedonian
+    'ms': 'msa',  # Malay
+    'ml': 'mal',  # Malayalam
+    'mt': 'mlt',  # Maltese
+    'mi': 'mri',  # Maori
+    'mr': 'mar',  # Marathi
+    'mn': 'mon',  # Mongolian
+    'my': 'mya',  # Myanmar (Burmese)
+    'ne': 'nep',  # Nepali
+    'nl': 'nld',  # Dutch, Flemish
+    'no': 'nor',  # Norwegian
+    'pa': 'pan',  # Punjabi, Panjabi
+    'ps': 'pus',  # Pashto, Pushto
+    'pl': 'pol',  # Polish
+    'pt': 'por',  # Portuguese
+    'ro': 'ron',  # Romanian, Moldovan
+    'ru': 'rus',  # Russian
+    'es': 'spa',  # Spanish
+    'sd': 'snd',  # Sindhi
+    'si': 'sin',  # Sinhala
+    'sk': 'slk',  # Slovak
+    'sl': 'slv',  # Slovenian
+    'sr': 'srp',  # Serbian
+    'su': 'sun',  # Sundanese
+    'sw': 'swa',  # Swahili
+    'sv': 'swe',  # Swedish
+    'ta': 'tam',  # Tamil
+    'te': 'tel',  # Telugu
+    'tg': 'tgk',  # Tajik
+    'th': 'tha',  # Thai
+    'tr': 'tur',  # Turkish
+    'uk': 'ukr',  # Ukrainian
+    'ur': 'urd',  # Urdu
+    'ug': 'uig',  # Uyghur
+    'uz': 'uzb',  # Uzbek (check if Cyrilic version, which is uzb_cyrl)
+    'vi': 'vie',  # Vietnamese
+    'yi': 'yid',  # Yiddish
+    'yo': 'yor'  # Yoruba
 }
+
+# TODO bug check translate from before opening selection window, then let it run and it will stop reading
+# TODO also when selection starts over empty area, goes to text, goes back to empty, stops reading..
+#  though this might be because of specific languages
 
 
 def update_lang_dict():
     j = 0
     for key in LANGUAGES:
-        LANGUAGES[key] = language_list[j]
+        LANGUAGES[key] = old_language_list[j]
         j += 1
 
 
