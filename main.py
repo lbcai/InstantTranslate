@@ -142,7 +142,7 @@ language_map_pt_to_googletrans = {
 
 # TODO bug check translate from before opening selection window, then let it run and it will stop reading
 # TODO also when selection starts over empty area, goes to text, goes back to empty, stops reading..
-#  though this might be because of specific languages
+#  though this might be because of specific languages...seems related to tesseract portion not parsing non english letters
 
 
 def update_lang_dict():
@@ -469,10 +469,20 @@ class App(tk.Toplevel):
         """
         Open or close separate window to display translated text.
         """
+        # if box unchecked, delete the text window
         if self.text_window_boolean.get() is False:
             self.text_window.destroy()
         else:
-            self.text_window = TextWindow(self)
+            # if box checked, create a text window...but if there is already a text window,
+            # create a text window with previous position coordinates so user can move the text window and
+            # spawn a new one, but have the new one stay in the same area.
+            if self.text_window is None:
+                self.text_window = TextWindow(self.grab_window.return_size().replace('x', '+'), self)
+            else:
+                array = self.grab_window.return_size().replace('x', '+').split('+')
+                position = array[0] + '+' + array[1] + self.text_window.return_pos()
+                self.text_window.destroy()
+                self.text_window = TextWindow(position, self)
 
     def close_other_windows(self):
         """
@@ -546,7 +556,6 @@ class App(tk.Toplevel):
 
 # TODO any windows in the program over the translation spot should be hidden during screenshot
 # TODO test with text of different sizes - works in english
-# TODO make the dropdown of languages match the available ones in the top dict
 # TODO still didn't fix the persisting program bug (closing during the right time of the thread loop gets it stuck?)
 # TODO stop combobox arrow lighting up when not enabled
 # TODO when text box open with selection open if make new selection do not respawn text box? or respawn in same spot (if moved)
@@ -587,12 +596,11 @@ class TextWindow(tk.Toplevel):
     Window to display translated text if user selects option to use.
     """
 
-    def __init__(self, master):
+    def __init__(self, position, master):
         tk.Toplevel.__init__(self, master)
 
         self.hidden_window = TextWindowHidden(self)
-
-        self.size()
+        self.size(position)
 
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
@@ -652,11 +660,17 @@ class TextWindow(tk.Toplevel):
         self.clipboard_clear()
         self.clipboard_append(text)
 
-    def size(self):
+    def return_pos(self):
+        """
+        Use for remaking translation text box if user selects new grab area while text window open.
+        """
+        return str(f'+{self.winfo_x()}+{self.winfo_y()}')
+
+    def size(self, position):
         """
         Set window dimensions. Minimum height and width set based on widgets in window and selection size.
         """
-        dimensions = self.master.grab_window.return_size().replace('x', '+')
+        dimensions = position
         dimensions_array = dimensions.split('+')
         # Add headspace for title bar, other things, tabs in window size
         dimensions_array[0] = int(dimensions_array[0])
@@ -754,8 +768,7 @@ class OverlayWindow(tk.Toplevel):
         """
         App.create_grab_window(self.master, self.stored_values)
         if self.master.text_window is not None:
-            if self.master.text_window.winfo_exists():
-                self.master.text_window.size()
+            self.master.text_window_generate()
 
 
 class GrabWindow(tk.Toplevel):
@@ -838,7 +851,7 @@ class GrabWindow(tk.Toplevel):
 
             self.translation = translation_obj.text
             self.src_lang = translation_obj.src
-            print(self.src_lang.lower())
+            print(self.src_lang.lower())  # TODO
             try:
                 self.lang_string = language_map_pt_to_googletrans[self.src_lang.lower()]
             except KeyError:
