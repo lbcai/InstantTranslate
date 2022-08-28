@@ -140,10 +140,6 @@ language_map_pt_to_googletrans = {
     'yo': 'yor'  # Yoruba
 }
 
-# TODO bug check translate from before opening selection window, then let it run and it will stop reading
-# TODO also when selection starts over empty area, goes to text, goes back to empty, stops reading..
-#  though this might be because of specific languages...seems related to tesseract portion not parsing non english letters
-
 
 def update_lang_dict():
     j = 0
@@ -483,6 +479,7 @@ class App(tk.Toplevel):
                 position = array[0] + '+' + array[1] + self.text_window.return_pos()
                 self.text_window.destroy()
                 self.text_window = TextWindow(position, self)
+            self.text_window_boolean.set(True)
 
     def close_other_windows(self):
         """
@@ -553,12 +550,6 @@ class App(tk.Toplevel):
         if not self.t.is_alive():
             self.t.start()
 
-
-# TODO any windows in the program over the translation spot should be hidden during screenshot
-# TODO test with text of different sizes - works in english
-# TODO still didn't fix the persisting program bug (closing during the right time of the thread loop gets it stuck?)
-# TODO stop combobox arrow lighting up when not enabled
-# TODO when text box open with selection open if make new selection do not respawn text box? or respawn in same spot (if moved)
 
 class TextWindowHidden(tk.Toplevel):
     """
@@ -1061,9 +1052,15 @@ class OptionsWindow(tk.Toplevel):
         self.image_panel.image = self.img  # Prevent garbage collection of image
 
 
+# TODO any windows in the program over the translation spot should be hidden during screenshot
+# TODO test with text of different sizes - works in english
+# TODO still didn't fix the persisting program bug (closing during the right time of the thread loop gets it stuck?)
+# TODO stop combobox arrow lighting up when not enabled
+# TODO stops working on non eng alphabet languages. seems related to tesseract portion not parsing non english letters
 # TODO rotation, specify box for border removal, noise removal
 # TODO title bar icon
-
+# TODO fix lag on resize in options window
+# TODO make base app layout prettier
 
 if __name__ == '__main__':
     update_lang_dict()
