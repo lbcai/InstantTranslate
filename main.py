@@ -373,6 +373,8 @@ class App(tk.Toplevel):
         self.y_pos = 0
         make_title_bar(self)
 
+        master_frame = ttk.Frame(self)
+
         # Add language choice dropdown.
         # Color combobox dropdowns on this window to match Equilux theme.
         self.option_add('*TCombobox*Listbox.background', self['background'])
@@ -380,7 +382,7 @@ class App(tk.Toplevel):
         # User-determined language to translate into
         self.target_lang = tk.StringVar(self)
         self.target_lang.set('English')  # default value for dropdown is English
-        language_frame = ttk.Frame(self)
+        language_frame = ttk.Frame(master_frame)
         language_label = ttk.Label(language_frame, text="Translate to:")
         language_dropdown = ttk.Combobox(language_frame, state='readonly', textvariable=self.target_lang,
                                          values=language_list)
@@ -394,12 +396,13 @@ class App(tk.Toplevel):
         self.src_lang_checkbox.pack()
         self.src_lang_dropdown = ttk.Combobox(language_frame, state='disabled', textvariable=self.src_lang,
                                               values=language_list)
+
         self.src_lang_dropdown.pack()
 
         language_frame.pack(padx=5, pady=5)
 
         # Divider
-        separator_frame = tk.Frame(self)
+        separator_frame = tk.Frame(master_frame)
         separator = tk.Frame(separator_frame, height=1, borderwidth=0, bg='#373737')
         separator.pack(fill=tk.X)
         separator_underline = tk.Frame(separator_frame, height=1, borderwidth=0, bg='#414141')
@@ -407,7 +410,7 @@ class App(tk.Toplevel):
         separator_frame.pack(fill=tk.X, pady=10, padx=5)
 
         # Add time interval selection for grab window.
-        time_selection_frame = ttk.Frame(self)
+        time_selection_frame = ttk.Frame(master_frame)
         time_selection_label = ttk.Label(time_selection_frame, text="Image Sample Interval (sec):")
         self.time_selection_entry = IntegerEntry(time_selection_frame, '1')  # Default sample time is once a second.
         time_selection_label.pack()
@@ -415,15 +418,15 @@ class App(tk.Toplevel):
         time_selection_frame.pack()
 
         # Text box option instead of grab window option for text
-        self.window_checkbox = ttk.Checkbutton(self, text="Text Window",
+        self.window_checkbox = ttk.Checkbutton(master_frame, text="Text Window",
                                                variable=self.text_window_boolean, onvalue=True, offvalue=False,
                                                command=self.text_window_generate, state='disabled')
         self.window_checkbox.pack()
 
         # Change opacity of grab window option
-        self.grab_opacity_slide = ttk.Scale(self, from_=0, to=1, orient='horizontal')
+        self.grab_opacity_slide = ttk.Scale(master_frame, from_=0, to=1, orient='horizontal')
         self.grab_opacity_slide.set(self.grab_opacity)
-        self.grab_opacity_label = ttk.Label(self, text=f"Selection Opacity: {float(self.grab_opacity_slide.get())}")
+        self.grab_opacity_label = ttk.Label(master_frame, text=f"Selection Opacity: {float(self.grab_opacity_slide.get())}")
         self.grab_opacity_slide.config(command=lambda x: [update_display(self.grab_opacity_label,
                                                                          self.grab_opacity_slide.get(),
                                                                          tag="Selection Opacity: ", int_flag=False),
@@ -431,8 +434,16 @@ class App(tk.Toplevel):
         self.grab_opacity_label.pack()
         self.grab_opacity_slide.pack()
 
+        # Divider
+        separator_frame = tk.Frame(master_frame)
+        separator = tk.Frame(separator_frame, height=1, borderwidth=0, bg='#373737')
+        separator.pack(fill=tk.X)
+        separator_underline = tk.Frame(separator_frame, height=1, borderwidth=0, bg='#414141')
+        separator_underline.pack(fill=tk.X)
+        separator_frame.pack(fill=tk.X, pady=10, padx=5)
+
         # Add screen grab button and bind click + drag motion to it.
-        button_frame = ttk.Frame(self)
+        button_frame = ttk.Frame(master_frame)
         area_select_button = ttk.Button(button_frame, text="Select Area", command=self.screen_grab)
         area_select_button.pack()
 
@@ -445,7 +456,8 @@ class App(tk.Toplevel):
         close_windows_button = ttk.Button(button_frame, text="Close Windows", command=self.close_other_windows)
         close_windows_button.pack()
 
-        button_frame.pack(padx=5, pady=5)
+        button_frame.pack(padx=5, pady=3)
+        master_frame.pack(padx=15, pady=15)
 
     def toggle_src_lang_dropdown(self):
         if self.src_lang_boolean.get() is True:
@@ -1055,7 +1067,7 @@ class OptionsWindow(tk.Toplevel):
 # TODO any windows in the program over the translation spot should be hidden during screenshot
 # TODO test with text of different sizes - works in english
 # TODO still didn't fix the persisting program bug (closing during the right time of the thread loop gets it stuck?)
-# TODO stop combobox arrow lighting up when not enabled
+# TODO stop combobox arrow lighting up when not enabled - cannot cover with invisible widget
 # TODO stops working on non eng alphabet languages. seems related to tesseract portion not parsing non english letters
 # TODO rotation, specify box for border removal, noise removal
 # TODO title bar icon
