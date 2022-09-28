@@ -1072,7 +1072,6 @@ class OptionsWindow(tk.Toplevel):
 # TODO rotation, specify box for border removal, noise removal
 # TODO title bar icon
 # TODO fix lag on resize in options window
-# TODO make base app layout prettier
 
 if __name__ == '__main__':
     update_lang_dict()
