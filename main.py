@@ -7,7 +7,7 @@ from ttkthemes import ThemedTk
 from win32gui import SetWindowLong, SetLayeredWindowAttributes
 from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
 # for image taking and text conversion
-from PIL import ImageGrab, ImageTk, ImageChops
+from PIL import Image, ImageGrab, ImageTk, ImageChops
 
 import pytesseract as pt  # Using version 5.1.0.20220510
 
@@ -17,7 +17,7 @@ from threading import Thread
 # for translation
 from googletrans import Translator, LANGUAGES
 
-title_string = "InstantTranslate 1.0"
+title_string = "InstantTranslate"
 # Flag for screen grab thread to stop after program closes.
 stop_threads = False
 # pytesseract requires tesseract exe, location provided for bundling with pyinstaller package
@@ -196,7 +196,10 @@ def make_title_bar(self):
         close_button = ttk.Button(title_bar, text='X', width=1,
                                   command=self.reset_master_box)
 
-    window_title = ttk.Label(title_bar, text=title_string)
+    icon = ImageTk.PhotoImage(Image.open(r"icons/16.png"))
+    icon_label = ttk.Label(title_bar, image=icon)
+    icon_label.image = icon
+    window_title = ttk.Label(title_bar, text=" " + title_string)
     title_bar.pack(expand=False, fill=tk.X, side=tk.TOP)
     close_button.pack(side=tk.RIGHT)
 
@@ -208,6 +211,7 @@ def make_title_bar(self):
         mini_button = ttk.Button(title_bar, text='__', width=1, command=self.hidden_window.iconify)
         mini_button.pack(side=tk.RIGHT)
 
+    icon_label.pack(side=tk.LEFT)
     window_title.pack(side=tk.LEFT)
     # Return drag functionality to custom title bar.
     window_title.bind('<B1-Motion>', lambda event: App.move_window(self, event))
@@ -305,10 +309,12 @@ class Root(ThemedTk):
         ThemedTk.__init__(self, theme='equilux', background=True, toplevel=True)
         self.attributes('-alpha', 0.0)
         self.title(title_string)
+        self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(file=r"icons/16.png"))
         self.bind("<Map>", lambda event: Root.on_root_deiconify(self, event))
         self.bind("<Unmap>", lambda event: Root.on_root_iconify(self, event))
         self.app = App(self)
         self.app.mainloop()
+
 
     def on_root_deiconify(self, event):
         """
