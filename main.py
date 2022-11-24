@@ -801,6 +801,8 @@ class GrabWindow(tk.Toplevel):
         dimensions = str(self.x_width) + "x" + str(self.y_height) + "+" + str(self.x_min) + "+" + str(self.y_min)
         self.geometry(dimensions)
 
+        # TODO allow user to change overlay window to black bg with white text
+
         # Set window transparent and add a canvas, then use set_click_through to make canvas
         # not interactable
         self.attributes("-alpha", float(self.master.grab_opacity))
@@ -939,19 +941,20 @@ class OptionsWindow(tk.Toplevel):
         # Current screen grab image and scroll bars
         self.img = self.master.grab_window.img
 
-        limited_img_height = self.img.size[0]  # width
-        limited_img_width = self.img.size[1]  # height
-        if limited_img_height > 400:
-            limited_img_height = 400
+        limited_img_width = self.img.size[0]  # width
+        limited_img_height = self.img.size[1]  # height
         if limited_img_width > 400:
             limited_img_width = 400
+        if limited_img_height > 400:
+            limited_img_height = 400
         self.image_frame = ttk.Frame(self, height=limited_img_height, width=limited_img_width)  # Limit canvas size
-        # TODO FIX SLIDE BAR SPAWN
+
         # Scroll bar configs
         self.xbar = ttk.Scrollbar(self.image_frame, orient=tk.HORIZONTAL)
         self.ybar = ttk.Scrollbar(self.image_frame)
         self.image_panel = tk.Canvas(self.image_frame, highlightthickness=0, height=self.img.size[1],
-                                     width=self.img.size[0], xscrollcommand=self.xbar.set, yscrollcommand=self.ybar.set)
+                                     width=self.img.size[0], scrollregion=(0, 0, self.img.size[0], self.img.size[1]),
+                                     xscrollcommand=self.xbar.set, yscrollcommand=self.ybar.set)
         self.xbar.config(command=self.image_panel.xview)
         self.ybar.config(command=self.image_panel.yview)
         self.xbar.pack(side=tk.BOTTOM, fill=tk.X)
@@ -1076,7 +1079,6 @@ class OptionsWindow(tk.Toplevel):
 # TODO stop combobox arrow lighting up when not enabled - cannot cover with invisible widget
 # TODO stops working on non eng alphabet languages. seems related to tesseract portion not parsing non english letters
 # TODO rotation, specify box for border removal, noise removal
-# TODO title bar icon
 # TODO fix lag on resize in options window
 
 if __name__ == '__main__':
