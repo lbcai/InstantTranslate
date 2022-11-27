@@ -42,7 +42,7 @@ for i in range(len(old_language_list)):
             language_list.append(fixed_string)
         else:
             if old_language_list[i] == 'Hebrew':
-                if old_language_list[i-1] != 'Hebrew':
+                if old_language_list[i - 1] != 'Hebrew':
                     language_list.append(old_language_list[i])
             else:
                 language_list.append(old_language_list[i])
@@ -315,7 +315,6 @@ class Root(ThemedTk):
         self.app = App(self)
         self.app.mainloop()
 
-
     def on_root_deiconify(self, event):
         """
         Show main window if invisible root window is clicked from task bar.
@@ -373,6 +372,8 @@ class App(tk.Toplevel):
         self.src_lang.set('Auto')
         self.src_lang_boolean = tk.BooleanVar()
         self.src_lang_boolean.set(False)
+        self.invert_grab_window = tk.BooleanVar()
+        self.invert_grab_window.set(False)
 
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
@@ -428,11 +429,17 @@ class App(tk.Toplevel):
                                                variable=self.text_window_boolean, onvalue=True, offvalue=False,
                                                command=self.text_window_generate, state='disabled')
         self.window_checkbox.pack()
+        # Invert grab window option
+        self.invert_window_checkbox = ttk.Checkbutton(master_frame, text="Invert",
+                                                      variable=self.invert_grab_window, onvalue=True, offvalue=False,
+                                                      command=self.invert_grab_window_func, state='disabled')
+        self.invert_window_checkbox.pack()
 
         # Change opacity of grab window option
         self.grab_opacity_slide = ttk.Scale(master_frame, from_=0, to=1, orient='horizontal')
         self.grab_opacity_slide.set(self.grab_opacity)
-        self.grab_opacity_label = ttk.Label(master_frame, text=f"Selection Opacity: {float(self.grab_opacity_slide.get())}")
+        self.grab_opacity_label = ttk.Label(master_frame, text=f"Selection Opacity: "
+                                                               f"{float(self.grab_opacity_slide.get())}")
         self.grab_opacity_slide.config(command=lambda x: [update_display(self.grab_opacity_label,
                                                                          self.grab_opacity_slide.get(),
                                                                          tag="Selection Opacity: ", int_flag=False),
@@ -499,6 +506,13 @@ class App(tk.Toplevel):
                 self.text_window = TextWindow(position, self)
             self.text_window_boolean.set(True)
 
+    def invert_grab_window_func(self):
+        """
+        Invert color of text window overlay (default is white background with black text).
+        """
+        self.grab_window.invert.set(self.invert_grab_window.get())
+        self.grab_window.refresh_color()
+
     def close_other_windows(self):
         """
         From main app window, close other extra windows and close threads.
@@ -521,10 +535,12 @@ class App(tk.Toplevel):
             self.options_button.config(state='normal')
             self.window_checkbox.config(state='normal')
             self.grab_opacity_slide.config(state='normal')
+            self.invert_window_checkbox.config(state='normal')
         else:
             self.options_button.config(state='disabled')
             self.window_checkbox.config(state='disabled')
             self.grab_opacity_slide.config(state='disabled')
+            self.invert_window_checkbox.config(state='disabled')
 
     def click_window(self, event):
         """
@@ -801,15 +817,19 @@ class GrabWindow(tk.Toplevel):
         dimensions = str(self.x_width) + "x" + str(self.y_height) + "+" + str(self.x_min) + "+" + str(self.y_min)
         self.geometry(dimensions)
 
-        # TODO allow user to change overlay window to black bg with white text
+        # Create inversion option for color of grab window (visibility aide)
+        self.invert = tk.BooleanVar()
+        self.invert.set(False)
+        self.bg_color = 'white'
+        self.text_color = 'black'
 
         # Set window transparent and add a canvas, then use set_click_through to make canvas
         # not interactable
         self.attributes("-alpha", float(self.master.grab_opacity))
         self.attributes('-transparentcolor', 'white', '-topmost', True)
         self.config(bg='white')
-        self.cv = tk.Canvas(self, bg='white', highlightthickness=0, width=self.x_width, height=self.y_height)
-        self.cv_text = self.cv.create_text(self.x_width // 2, self.y_height // 2, text=" ", fill="black")
+        self.cv = tk.Canvas(self, bg=self.bg_color, highlightthickness=0, width=self.x_width, height=self.y_height)
+        self.cv_text = self.cv.create_text(self.x_width // 2, self.y_height // 2, text=" ", fill=self.text_color)
         self.cv.pack()
         hwnd = self.cv.winfo_id()
         set_click_through(hwnd)
@@ -828,6 +848,16 @@ class GrabWindow(tk.Toplevel):
         self.img = self.img_raw.copy()
         self.text = pt.image_to_string(self.img)
         GrabWindow.translate(self)
+
+    def refresh_color(self):
+        if self.invert.get() is True:
+            self.bg_color = 'black'
+            self.text_color = 'white'
+        else:
+            self.bg_color = 'white'
+            self.text_color = 'black'
+        self.cv.config(bg=self.bg_color)
+        self.cv.itemconfig(self.cv_text, fill=self.text_color)
 
     def get_translation(self):
         return self.translation
@@ -977,7 +1007,8 @@ class OptionsWindow(tk.Toplevel):
         self.thresholding_input_slide = ttk.Scale(slide_frame, from_=0, to=100, orient='horizontal')
         self.thresholding_input_slide.set(self.master.threshold)
         self.thresholding_checkbox = ttk.Checkbutton(box_frame,
-                                                     text=f"Threshold Value: {int(self.thresholding_input_slide.get())}",
+                                                     text=f"Threshold Value: "
+                                                          f"{int(self.thresholding_input_slide.get())}",
                                                      variable=self.thresholding_boolean_var, onvalue=True,
                                                      offvalue=False, width=18,
                                                      command=lambda: [self.refresh_image(),
