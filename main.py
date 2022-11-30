@@ -499,11 +499,13 @@ class App(tk.Toplevel):
             # spawn a new one, but have the new one stay in the same area.
             if self.text_window is None:
                 self.text_window = TextWindow(self.grab_window.return_size().replace('x', '+'), self)
-            else:
+            elif self.text_window.winfo_exists():
                 array = self.grab_window.return_size().replace('x', '+').split('+')
                 position = array[0] + '+' + array[1] + self.text_window.return_pos()
                 self.text_window.destroy()
                 self.text_window = TextWindow(position, self)
+            else:
+                self.text_window = TextWindow(self.grab_window.return_size().replace('x', '+'), self)
             self.text_window_boolean.set(True)
 
     def invert_grab_window_func(self):
@@ -593,6 +595,7 @@ class TextWindowHidden(tk.Toplevel):
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
         self.attributes('-alpha', 0.0)
+        self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(file=r"icons/16.png"))
         self.bind("<Unmap>", lambda event: self.on_iconify(event))
         self.bind("<Destroy>", lambda event: self.on_destroy(event))
         self.bind("<FocusIn>", lambda event: self.on_deiconify(event))
@@ -657,9 +660,9 @@ class TextWindow(tk.Toplevel):
         self.text_label = tk.Text(scroll_frame1, bg='#464646', bd=0, cursor='arrow', font='TkDefaultFont',
                                   fg='#a6a6a6', insertbackground='#a6a6a6',
                                   padx=10, yscrollcommand=scroll1.set)
-        self.text_label.pack(pady=5)
+        self.text_label.pack(expand=True, fill=tk.BOTH, pady=5)
         self.text_label.insert(tk.END, self.text)
-        scroll_frame1.pack()
+        scroll_frame1.pack(expand=True, fill=tk.BOTH)
 
         # Tab 2 (Translated)
         self.target_label = ttk.Label(tab2, text=self.target_lang)
@@ -672,9 +675,9 @@ class TextWindow(tk.Toplevel):
         self.translation_label = tk.Text(scroll_frame2, bg='#464646', bd=0, cursor='arrow', font='TkDefaultFont',
                                          fg='#a6a6a6', yscrollcommand=scroll2.set, insertbackground='#a6a6a6',
                                          padx=10)
-        self.translation_label.pack(pady=5)
+        self.translation_label.pack(expand=True, fill=tk.BOTH, pady=5)
         self.translation_label.insert(tk.END, self.translation)
-        scroll_frame2.pack()
+        scroll_frame2.pack(expand=True, fill=tk.BOTH)
 
         main_frame.pack(fill=tk.BOTH, expand=True, pady=2)
 
@@ -698,8 +701,8 @@ class TextWindow(tk.Toplevel):
         dimensions = position
         dimensions_array = dimensions.split('+')
         # Add headspace for title bar, other things, tabs in window size
-        dimensions_array[0] = int(dimensions_array[0])
-        dimensions_array[1] = int(dimensions_array[1])
+        dimensions_array[0] = int(dimensions_array[0])  # width
+        dimensions_array[1] = int(dimensions_array[1])  # height
         if dimensions_array[0] < 155:
             dimensions_array[0] = 155
         if dimensions_array[1] < 138:
@@ -1111,6 +1114,7 @@ class OptionsWindow(tk.Toplevel):
 # TODO stops working on non eng alphabet languages. seems related to tesseract portion not parsing non english letters
 # TODO rotation, specify box for border removal, noise removal
 # TODO fix lag on resize in options window
+# TODO change size of text window so active area must equal size of grab window
 
 if __name__ == '__main__':
     update_lang_dict()
