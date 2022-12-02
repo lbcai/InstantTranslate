@@ -374,6 +374,8 @@ class App(tk.Toplevel):
         self.src_lang_boolean.set(False)
         self.invert_grab_window = tk.BooleanVar()
         self.invert_grab_window.set(False)
+        # For hiding on overlap of grab window
+        self.hidden = False
 
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
@@ -472,7 +474,7 @@ class App(tk.Toplevel):
         button_frame.pack(padx=5, pady=3)
         master_frame.pack(padx=15, pady=15)
 
-    def hide_all_windows(self):
+    def hide_all_windows(self, x_right, y_bot):
         """
         Call from grab_window when taking an image. Checks if any windows are obscuring the grab area
         and hides them while image grabbing.
@@ -481,26 +483,32 @@ class App(tk.Toplevel):
         # Grab window guaranteed to exist since we only call this function from grab window
         if self.grab_opacity_slide.get() > 0:
             self.grab_window.cv.pack_forget()
-        x_right = self.grab_window.x_width + self.grab_window.x_min
-        y_bot = self.grab_window.y_height + self.grab_window.y_min
 
         o_array = self.geometry().replace('x', '+').split('+')
         array = [eval(item) for item in o_array]
         if self.grab_window.x_min <= array[0] <= x_right or (
-                self.grab_window.x_min <= (array[0]+array[2]) <= x_right):
+                self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
             if (self.grab_window.y_min <= array[1] <= y_bot) or (
-                    self.grab_window.y_min <= array[1]+array[3] <= y_bot):
-                self.withdraw()
+                    self.grab_window.y_min <= array[1] + array[3] <= y_bot):
+                if self.state() == 'withdrawn':
+                    self.hidden = True
+                else:
+                    self.hidden = False
+                    self.withdraw()
         if self.text_window is not None and self.text_window.winfo_exists():
             # Check if left side or right side of window is between left/right bounds of grab window
             # format widthxheight+xcoord+ycoord
             o_array = self.text_window.geometry().replace('x', '+').split('+')
             array = [eval(item) for item in o_array]
             if self.grab_window.x_min <= array[0] <= x_right or (
-                    self.grab_window.x_min <= (array[0]+array[2]) <= x_right):
+                    self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
                 if (self.grab_window.y_min <= array[1] <= y_bot) or (
-                        self.grab_window.y_min <= array[1]+array[3] <= y_bot):
-                    self.text_window.withdraw()
+                        self.grab_window.y_min <= array[1] + array[3] <= y_bot):
+                    if self.text_window.state() == 'withdrawn':
+                        self.text_window.hidden = True
+                    else:
+                        self.text_window.hidden = False
+                        self.text_window.withdraw()
         if self.options_window is not None and self.options_window.winfo_exists():
             o_array = self.options_window.geometry().replace('x', '+').split('+')
             array = [eval(item) for item in o_array]
@@ -508,19 +516,33 @@ class App(tk.Toplevel):
                     self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
                 if (self.grab_window.y_min <= array[1] <= y_bot) or (
                         self.grab_window.y_min <= array[1] + array[3] <= y_bot):
-                    self.options_window.withdraw()
+                    self.options_window.attributes('-alpha', 0)
 
-    def show_all_windows(self):
+    def show_all_windows(self, x_right, y_bot):
         """
         Call from grab_window after done taking image. Makes all hidden windows visible again.
         """
         if self.grab_opacity_slide.get() > 0:
             self.grab_window.cv.pack()
-        self.deiconify()
+        if not self.hidden:
+            o_array = self.geometry().replace('x', '+').split('+')
+            array = [eval(item) for item in o_array]
+            if self.grab_window.x_min <= array[0] <= x_right or (
+                    self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
+                if (self.grab_window.y_min <= array[1] <= y_bot) or (
+                        self.grab_window.y_min <= array[1] + array[3] <= y_bot):
+                    self.deiconify()
         if self.text_window is not None and self.text_window.winfo_exists():
-            self.text_window.deiconify()
+            if not self.text_window.hidden:
+                o_array = self.text_window.geometry().replace('x', '+').split('+')
+                array = [eval(item) for item in o_array]
+                if self.grab_window.x_min <= array[0] <= x_right or (
+                        self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
+                    if (self.grab_window.y_min <= array[1] <= y_bot) or (
+                            self.grab_window.y_min <= array[1] + array[3] <= y_bot):
+                        self.text_window.deiconify()
         if self.options_window is not None and self.options_window.winfo_exists():
-            self.options_window.deiconify()
+            self.options_window.attributes('-alpha', 1)
 
     def toggle_src_lang_dropdown(self):
         if self.src_lang_boolean.get() is True:
@@ -679,6 +701,7 @@ class TextWindow(tk.Toplevel):
 
         self.hidden_window = TextWindowHidden(self)
         self.size(position)
+        self.hidden = False
 
         # Click position on title bar to be used for dragging.
         self.x_pos = 0
@@ -971,12 +994,16 @@ class GrabWindow(tk.Toplevel):
                 sleep(sleep_time)
                 # Use pillow to grab image in screen grab box
 
-                self.master.hide_all_windows()  # Temporarily hide windows to take a nice image of the text.
+                x_right = self.x_width + self.x_min
+                y_bot = self.y_height + self.y_min
+
+                self.master.hide_all_windows(x_right,
+                                             y_bot)  # Temporarily hide windows to take a nice image of the text.
                 self.img_raw = \
                     ImageGrab.grab(bbox=(self.x_min, self.y_min,
                                          self.x_min + self.x_width, self.y_min + self.y_height))
                 self.img = self.img_raw.copy()
-                self.master.show_all_windows()  # Fix windows so user can see them again.
+                self.master.show_all_windows(x_right, y_bot)  # Fix windows so user can see them again.
 
                 if self.master.resize_boolean is True:
                     width = self.img.width * int(self.master.resize)
@@ -1156,12 +1183,6 @@ class OptionsWindow(tk.Toplevel):
         self.image_panel.create_image(self.img.width() // 2, self.img.height() // 2, image=self.img)
         self.image_panel.image = self.img  # Prevent garbage collection of image
 
-
-# TODO any windows in the program over the translation spot should be hidden during screenshot
-# works but need to handle case where user overlaps window, it closes and reopens itself, user wants
-# to minimize window but because the window is really in the overlap position it will come back out
-
-# also need to fix bug with text window minimize button not working
 
 # TODO test with text of different sizes - works in english
 # TODO still didn't fix the persisting program bug (closing during the right time of the thread loop gets it stuck?)
