@@ -373,7 +373,7 @@ class App(tk.Toplevel):
         self.src_lang_boolean = tk.BooleanVar()
         self.src_lang_boolean.set(False)
         self.invert_grab_window = tk.BooleanVar()
-        self.invert_grab_window.set(False)
+        self.invert_grab_window.set(True)
         # For hiding on overlap of grab window
         self.hidden = False
 
@@ -422,20 +422,9 @@ class App(tk.Toplevel):
         time_selection_frame = ttk.Frame(master_frame)
         time_selection_label = ttk.Label(time_selection_frame, text="Image Sample Interval (sec):")
         self.time_selection_entry = IntegerEntry(time_selection_frame, '1')  # Default sample time is once a second.
-        time_selection_label.pack()
+        time_selection_label.pack(pady=(0, 2))
         self.time_selection_entry.pack()
         time_selection_frame.pack()
-
-        # Text box option instead of grab window option for text
-        self.window_checkbox = ttk.Checkbutton(master_frame, text="Text Window",
-                                               variable=self.text_window_boolean, onvalue=True, offvalue=False,
-                                               command=self.text_window_generate, state='disabled')
-        self.window_checkbox.pack()
-        # Invert grab window option
-        self.invert_window_checkbox = ttk.Checkbutton(master_frame, text="Invert",
-                                                      variable=self.invert_grab_window, onvalue=True, offvalue=False,
-                                                      command=self.invert_grab_window_func, state='disabled')
-        self.invert_window_checkbox.pack()
 
         # Change opacity of grab window option
         self.grab_opacity_slide = ttk.Scale(master_frame, from_=0, to=1, orient='horizontal')
@@ -446,8 +435,23 @@ class App(tk.Toplevel):
                                                                          self.grab_opacity_slide.get(),
                                                                          tag="Selection Opacity: ", int_flag=False),
                                                           self.update_grab_window_opacity()], state='disabled')
-        self.grab_opacity_label.pack()
+        self.grab_opacity_label.pack(pady=(5, 0))
         self.grab_opacity_slide.pack()
+
+        checkboxes_frame = ttk.Frame(master_frame)
+
+        # Text box option instead of grab window option for text
+        self.window_checkbox = ttk.Checkbutton(checkboxes_frame, text="Text Window",
+                                               variable=self.text_window_boolean, onvalue=True, offvalue=False,
+                                               command=self.text_window_generate, state='disabled')
+        self.window_checkbox.pack(side=tk.TOP, anchor=tk.NW)
+        # Invert grab window option
+        self.invert_window_checkbox = ttk.Checkbutton(checkboxes_frame, text="Invert Selection",
+                                                      variable=self.invert_grab_window, onvalue=True, offvalue=False,
+                                                      command=self.invert_grab_window_func, state='disabled')
+        self.invert_window_checkbox.pack(side=tk.BOTTOM, anchor=tk.NW)
+
+        checkboxes_frame.pack()
 
         # Divider
         separator_frame = tk.Frame(master_frame)
@@ -895,9 +899,9 @@ class GrabWindow(tk.Toplevel):
 
         # Create inversion option for color of grab window (visibility aide)
         self.invert = tk.BooleanVar()
-        self.invert.set(False)
-        self.bg_color = 'white'
-        self.text_color = 'black'
+        self.invert.set(self.master.invert_grab_window.get())
+        self.bg_color = 'black'
+        self.text_color = 'white'
 
         # Set window transparent and add a canvas, then use set_click_through to make canvas
         # not interactable
@@ -909,6 +913,8 @@ class GrabWindow(tk.Toplevel):
         self.cv.pack()
         hwnd = self.cv.winfo_id()
         set_click_through(hwnd)
+
+        self.refresh_color()
 
         # Spawn a translator
         self.trans = Translator()
