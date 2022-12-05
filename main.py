@@ -702,7 +702,7 @@ class TextWindow(tk.Toplevel):
 
     def __init__(self, position, master):
         tk.Toplevel.__init__(self, master)
-
+        self.height = 1
         self.hidden_window = TextWindowHidden(self)
         self.size(position)
         self.hidden = False
@@ -722,8 +722,43 @@ class TextWindow(tk.Toplevel):
         main_frame = ttk.Notebook(self)
         tab1 = ttk.Frame(main_frame)
         tab2 = ttk.Frame(main_frame)
+        tab3 = ttk.Frame(main_frame)
+        main_frame.add(tab3, text='Input')  # input first because user can use grabwindow for reading?
         main_frame.add(tab2, text='Translation')  # adding tab2 first because it's more relevant
         main_frame.add(tab1, text='Source Text')
+
+        # Tab 3 (for user to translate inputs)
+        top_frame = ttk.Frame(tab3, height=self.height // 2)
+        bottom_frame = ttk.Frame(tab3, height=self.height // 2)
+        # user source translated
+        self.top_text_label_self = ttk.Label(top_frame, text=self.target_lang)
+        self.top_text_label_self.pack(side=tk.TOP, pady=5)
+        self_copy_button = ttk.Button(top_frame, text='Copy Text', command=lambda: self.copy_to_clip(self.text))
+        self_copy_button.pack(side=tk.BOTTOM, pady=5)
+        scroll_frame3 = ttk.Frame(top_frame)
+        scroll3 = ttk.Scrollbar(scroll_frame3, orient=tk.VERTICAL)
+        scroll3.pack(side=tk.RIGHT, fill=tk.Y)
+        self.text_label_self = tk.Text(scroll_frame3, bg='#464646', bd=0, cursor='arrow', font='TkDefaultFont',
+                                  fg='#a6a6a6', insertbackground='#a6a6a6',
+                                  padx=10, yscrollcommand=scroll3.set)
+        self.text_label_self.pack(expand=True, fill=tk.BOTH, pady=5)
+        self.text_label_self.insert(tk.END, self.text)
+        scroll_frame3.pack(expand=True, fill=tk.BOTH)
+        top_frame.pack(side=tk.TOP, fill=tk.X)
+        top_frame.pack_propagate(0)
+        # user source
+        self.top_lang_label_self = ttk.Label(bottom_frame, text=self.src_lang)
+        self.top_lang_label_self.pack(side=tk.TOP, pady=5)
+        scroll_frame4 = ttk.Frame(bottom_frame)
+        scroll4 = ttk.Scrollbar(scroll_frame4, orient=tk.VERTICAL)
+        scroll4.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
+        self.lang_label_self = tk.Text(scroll_frame4, bg='#545454', bd=0, font='TkDefaultFont',
+                                  fg='#a6a6a6', insertbackground='#a6a6a6',
+                                  padx=10, yscrollcommand=scroll4.set)
+        self.lang_label_self.pack(expand=True, fill=tk.BOTH, pady=5)
+        scroll_frame4.pack(expand=True, fill=tk.BOTH)
+        bottom_frame.pack(padx=20, pady=10, side=tk.BOTTOM, fill=tk.X)
+        bottom_frame.pack_propagate(0)
 
         # Tab 1 (Source)
         self.lang_label = ttk.Label(tab1, text=self.src_lang)
@@ -787,6 +822,7 @@ class TextWindow(tk.Toplevel):
         self.geometry(
             f'{dimensions_array[0]}x{dimensions_array[1]}+'
             f'{dimensions_array[2]}+{dimensions_array[3]}')
+        self.height = dimensions_array[1]
 
     def reset_master_box(self):
         """
@@ -1195,6 +1231,9 @@ class OptionsWindow(tk.Toplevel):
 # TODO stop combobox arrow lighting up when not enabled - cannot cover with invisible widget
 # TODO stops working on non eng alphabet languages. seems related to tesseract portion not parsing non english letters
 # TODO fix lag on resize in options window
+# TODO add a typing input for communication in another lang
+    # typing input added, need to troubleshoot lang labels above each section
+    # install another thread for translating the input specifically as well
 
 if __name__ == '__main__':
     update_lang_dict()
