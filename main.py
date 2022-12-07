@@ -754,7 +754,7 @@ class TextWindow(tk.Toplevel):
         scroll4.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
         self.lang_label_self = tk.Text(scroll_frame4, bg='#545454', bd=0, font='TkDefaultFont',
                                   fg='#a6a6a6', insertbackground='#a6a6a6',
-                                  padx=10, yscrollcommand=scroll4.set)
+                                  padx=5, pady=5, yscrollcommand=scroll4.set)
         self.lang_label_self.pack(expand=True, fill=tk.BOTH, pady=5)
         scroll_frame4.pack(expand=True, fill=tk.BOTH)
         bottom_frame.pack(padx=20, pady=10, side=tk.BOTTOM, fill=tk.X)
@@ -844,6 +844,8 @@ class TextWindow(tk.Toplevel):
         self.target_label.config(text=self.target_lang)
         self.src_lang = self.master.grab_window.get_src_lang()
         self.lang_label.config(text=self.src_lang)
+        self.top_lang_label_self.config(text=self.target_lang)  # bottom
+        self.top_text_label_self.config(text=self.src_lang)  # top
 
 
 class OverlayWindow(tk.Toplevel):
@@ -1232,7 +1234,6 @@ class OptionsWindow(tk.Toplevel):
 # TODO stops working on non eng alphabet languages. seems related to tesseract portion not parsing non english letters
 # TODO fix lag on resize in options window
 # TODO add a typing input for communication in another lang
-    # typing input added, need to troubleshoot lang labels above each section
     # install another thread for translating the input specifically as well
 
 if __name__ == '__main__':
