@@ -793,6 +793,12 @@ class TextWindow(tk.Toplevel):
 
         main_frame.pack(fill=tk.BOTH, expand=True, pady=2)
 
+    def get_input(self):
+        """
+        Get user input text for translation.
+        """
+        return self.lang_label_self.get("1.0", 'end-1c')
+
     def copy_to_clip(self, text):
         """
         Allow user to press button and copy text to clipboard.
@@ -994,7 +1000,7 @@ class GrabWindow(tk.Toplevel):
         except KeyError:
             return 'English'
 
-    def translate(self):
+    def translate(self, input):
         """
         Apply translation to grab window unless the user selected a separate window to hold the translation.
         Then it will be applied there.
@@ -1021,6 +1027,17 @@ class GrabWindow(tk.Toplevel):
                 self.cv.itemconfig(self.cv_text, text=self.translation)
             else:
                 self.cv.itemconfig(self.cv_text, text='')
+
+        if input is not None:
+            if self.master.src_lang_boolean.get() is False:
+                translation_input = self.trans.translate(input,
+                                                       dest=self.master.target_lang.get(), src='Auto')
+            else:
+                translation_input = self.trans.translate(input,
+                                                       dest=self.master.target_lang.get(),
+                                                       src=self.master.src_lang.get())
+            translated_input = translation_input.text
+            print(translated_input)
 
     def return_size(self):
         """
@@ -1065,9 +1082,10 @@ class GrabWindow(tk.Toplevel):
 
                 if self.master.text_window_boolean.get() is True:
                     self.master.text_window.update_translation()  # ugly but wanted to avoid more threads...
+                    input = self.master.text_window.get_input()
 
                 self.text = pt.image_to_string(self.img, lang=self.lang_string)
-                GrabWindow.translate(self)
+                GrabWindow.translate(self, input)
             except RuntimeError:
                 break
             except _tkinter.TclError:
