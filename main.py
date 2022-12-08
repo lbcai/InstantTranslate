@@ -715,6 +715,7 @@ class TextWindow(tk.Toplevel):
         # Create text attributes
         self.translation = self.master.grab_window.get_translation()
         self.text = self.master.grab_window.get_text()
+        self.translated_input = ''
         self.target_lang = ''
         self.src_lang = ''
 
@@ -733,7 +734,7 @@ class TextWindow(tk.Toplevel):
         # user source translated
         self.top_text_label_self = ttk.Label(top_frame, text=self.target_lang)
         self.top_text_label_self.pack(side=tk.TOP, pady=5)
-        self_copy_button = ttk.Button(top_frame, text='Copy Text', command=lambda: self.copy_to_clip(self.text))
+        self_copy_button = ttk.Button(top_frame, text='Copy Text', command=lambda: self.copy_to_clip(self.translated_input))
         self_copy_button.pack(side=tk.BOTTOM, pady=5)
         scroll_frame3 = ttk.Frame(top_frame)
         scroll3 = ttk.Scrollbar(scroll_frame3, orient=tk.VERTICAL)
@@ -742,7 +743,7 @@ class TextWindow(tk.Toplevel):
                                   fg='#a6a6a6', insertbackground='#a6a6a6',
                                   padx=10, yscrollcommand=scroll3.set)
         self.text_label_self.pack(expand=True, fill=tk.BOTH, pady=5)
-        self.text_label_self.insert(tk.END, self.text)
+        self.text_label_self.insert(tk.END, self.translated_input)
         scroll_frame3.pack(expand=True, fill=tk.BOTH)
         top_frame.pack(side=tk.TOP, fill=tk.X)
         top_frame.pack_propagate(0)
@@ -792,6 +793,14 @@ class TextWindow(tk.Toplevel):
         scroll_frame2.pack(expand=True, fill=tk.BOTH)
 
         main_frame.pack(fill=tk.BOTH, expand=True, pady=2)
+
+    def translate_input(self, translated_input):
+        """
+        Set translation of user input text.
+        """
+        self.translated_input = translated_input
+        self.text_label_self.delete(1.0, tk.END)
+        self.text_label_self.insert(tk.END, self.translated_input)
 
     def get_input(self):
         """
@@ -850,8 +859,8 @@ class TextWindow(tk.Toplevel):
         self.target_label.config(text=self.target_lang)
         self.src_lang = self.master.grab_window.get_src_lang()
         self.lang_label.config(text=self.src_lang)
-        self.top_lang_label_self.config(text=self.target_lang)  # bottom
-        self.top_text_label_self.config(text=self.src_lang)  # top
+        self.top_text_label_self.config(text=self.target_lang)  # bottom
+        self.top_lang_label_self.config(text=self.src_lang)  # top
 
 
 class OverlayWindow(tk.Toplevel):
@@ -973,7 +982,7 @@ class GrabWindow(tk.Toplevel):
                                             self.y_height))
         self.img = self.img_raw.copy()
         self.text = pt.image_to_string(self.img)
-        GrabWindow.translate(self)
+        GrabWindow.translate(self, None)
 
     def refresh_color(self):
         if self.invert.get() is True:
@@ -1028,7 +1037,7 @@ class GrabWindow(tk.Toplevel):
             else:
                 self.cv.itemconfig(self.cv_text, text='')
 
-        if input is not None:
+        if input is not None and input != '':
             if self.master.src_lang_boolean.get() is False:
                 translation_input = self.trans.translate(input,
                                                        dest=self.master.target_lang.get(), src='Auto')
@@ -1037,7 +1046,7 @@ class GrabWindow(tk.Toplevel):
                                                        dest=self.master.target_lang.get(),
                                                        src=self.master.src_lang.get())
             translated_input = translation_input.text
-            print(translated_input)
+            self.master.text_window.translate_input(translated_input)
 
     def return_size(self):
         """
@@ -1079,13 +1088,13 @@ class GrabWindow(tk.Toplevel):
 
                 if self.master.inversion_boolean is True:
                     self.img = ImageChops.invert(self.img)
-
+                input_text = ''
                 if self.master.text_window_boolean.get() is True:
                     self.master.text_window.update_translation()  # ugly but wanted to avoid more threads...
-                    input = self.master.text_window.get_input()
+                    input_text = self.master.text_window.get_input()
 
                 self.text = pt.image_to_string(self.img, lang=self.lang_string)
-                GrabWindow.translate(self, input)
+                GrabWindow.translate(self, input_text)
             except RuntimeError:
                 break
             except _tkinter.TclError:
