@@ -18,7 +18,7 @@ Functionality:
 
 ## Example
 <p align="center" width="100%">
-  <img src="icons/step0.PNG?raw=true" alt="Creating a selection window.">
+  <img src="icons/step0.png?raw=true" alt="Creating a selection window.">
 </p>
   Open the program and use the Select Area button to create a selection window around the section of the screen that contains the text to be translated.  
 
