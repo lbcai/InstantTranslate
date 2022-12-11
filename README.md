@@ -26,7 +26,9 @@ Functionality:
 <p align="center" width="100%">
   <img src="icons/step1.PNG?raw=true" alt="Image of selection window.">
 </p>
-The selection window defaults to white text on a black background with 50% opacity. Use the opacity slider to change the selection window, which displays the translated text. Increase the opacity to cover the original text and more easily read the translated text. 
+The selection window defaults to white text on a black background with 50% opacity. Use the Invert Selection checkbox to change to a white background with black text. 
+ 
+Use the opacity slider to change the selection window, which displays the translated text. Increase the opacity to cover the original text and more easily read the translated text. 
 
 Lower the opacity to hide the selection window. This option is best used with the text window. If the text window is opened, the selection window will no longer contain translated text. Instead, the translated text can be viewed on the text window (see below).
 
@@ -49,10 +51,7 @@ Select Image Options from the main menu. A window will pop up above the main men
 </p>
 
 ### Text Window
-<p align="center" width="100%">
-  <img src="icons/step6.PNG?raw=true" alt="Image of text window.">
-</p>
-Here, the selection window has been hidden by setting the opacity to 0% and a text window has been opened. There are three tabs on the text window:
+In the following images, the selection window has been hidden by setting the opacity to 0% and a text window has been opened. There are three tabs on the text window:
 
 * Input: User can type in language of choice and translate to the target language (same as language being translated from in the selection window). There is a button to quickly copy the translated text onto the clipboard.
 <p align="center" width="100%">
