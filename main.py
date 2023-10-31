@@ -7,7 +7,7 @@ from ttkthemes import ThemedTk
 from win32gui import SetWindowLong, SetLayeredWindowAttributes
 from win32con import WS_EX_LAYERED, WS_EX_TRANSPARENT, GWL_EXSTYLE, LWA_ALPHA
 # for image taking and text conversion
-from PIL import Image, ImageGrab, ImageTk, ImageChops
+from PIL import Image, ImageGrab, ImageTk, ImageChops, ImageEnhance
 
 import pytesseract as pt  # Using version 5.1.0.20220510
 
@@ -154,6 +154,7 @@ def stop_threads_true():
     """
     global stop_threads
     stop_threads = True
+    return True
 
 
 def center_window(self, boolean=True):
@@ -190,8 +191,7 @@ def make_title_bar(self):
     # close root to close program if on main window, else close window for toplevel windows
     if isinstance(self, App):
         close_button = ttk.Button(title_bar, text='X', width=1,
-                                  command=lambda: [self.close_other_windows(), self.master.destroy(),
-                                                   stop_threads_true()])
+                                  command=lambda: [self.close_other_windows(), self.close_threads()])
     else:
         close_button = ttk.Button(title_bar, text='X', width=1,
                                   command=self.reset_master_box)
@@ -249,7 +249,7 @@ def update_display(label, boolean, tag="", int_flag=True):
 
 class IntegerEntry(ttk.Entry):
     """
-    Entry box that checks for integer input and overwrites invalid input.
+    Entry box that checks for float input and overwrites invalid input.
     Used to determine sample time of grab window.
     """
 
@@ -257,25 +257,24 @@ class IntegerEntry(ttk.Entry):
         self.var = tk.StringVar(value=string)
         ttk.Entry.__init__(self, master, textvariable=self.var)
         self.reset_value = string
-        self.var.trace_add('write', self.check)  # Add observer. On write, check input.
         # Thread for listening while input box is empty.
-        self.t = Thread(target=self.check_thread_helper)
-
-    def check(self, *args):
-        """
-        Used on input to entry box to check input. Only starts thread for listening.
-        """
-        if not self.t.is_alive():
-            self.t.start()
+        self.th = Thread(target=self.check_thread_helper, daemon=True)
+        if not self.th.is_alive():
+            self.th.start()
 
     def check_input(self):
         """
         Actual check input logic for thread to run.
         """
-        if self.get().isdigit():
-            # Input is numbers, change value to reset to to be current input.
-            self.reset_value = self.get()
-        else:
+        try:
+            if float(self.get()) > 0:
+                # Input is numbers, change value to reset to to be current input.
+                self.reset_value = self.get()
+            else:
+                # Input not numbers, replace value with smallest value.
+                self.delete(0, tk.END)
+                self.insert(0, '0.1')
+        except ValueError:
             # Input not numbers, replace value with last good input.
             self.delete(0, tk.END)
             self.insert(0, self.reset_value)
@@ -295,6 +294,10 @@ class IntegerEntry(ttk.Entry):
                 self.check_input()
         except KeyError:  # Python bug, tkinter doesn't understand popdown arrow on Combobox
             pass
+
+    def close_thread(self):
+        if self.th.is_alive():
+            self.th.join()
 
 
 class Root(ThemedTk):
@@ -354,6 +357,7 @@ class App(tk.Toplevel):
         # Translate area that will remain on screen
         self.grab_window = None
         self.grab_opacity = '0.5'
+        self.text_size = '9'
         # Options window for user to adjust image settings for text reading
         self.options_window = None
         # Thread for image grab window
@@ -365,7 +369,9 @@ class App(tk.Toplevel):
         self.threshold = '100'
         self.inversion_boolean = False
         self.resize_boolean = False
+        self.contrast_boolean = False
         self.resize = '1'
+        self.contrast = '1'
         self.text_window_boolean = tk.BooleanVar()
         self.text_window_boolean.set(False)
         self.src_lang = tk.StringVar(self)
@@ -440,6 +446,20 @@ class App(tk.Toplevel):
 
         checkboxes_frame = ttk.Frame(master_frame)
 
+        # Change text size for overlay text window
+        self.text_size_slide = ttk.Scale(master_frame, from_=1, to=40,
+                                 orient='horizontal')
+        self.text_size_slide.set(self.text_size)
+        self.text_size_label = ttk.Label(master_frame, text=f"Font Size: {int(self.text_size_slide.get())}")
+        self.text_size_slide.config(command=lambda x: [update_display(self.text_size_label,
+                                                                         self.text_size_slide.get(),
+                                                                         tag="Font Size: ", int_flag=True),
+                                                          self.update_text_size()], state='disabled')
+        self.text_size_label.pack(pady=(5, 0))
+        self.text_size_slide.pack()
+
+        checkboxes_frame = ttk.Frame(master_frame)
+
         # Text box option instead of grab window option for text
         self.window_checkbox = ttk.Checkbutton(checkboxes_frame, text="Text Window",
                                                variable=self.text_window_boolean, onvalue=True, offvalue=False,
@@ -484,21 +504,21 @@ class App(tk.Toplevel):
         and hides them while image grabbing.
         """
         # Probably can put all the subwindows into an array if reformatting in future.
-        # Grab window guaranteed to exist since we only call this function from grab window
-        if self.grab_opacity_slide.get() > 0:
-            self.grab_window.cv.pack_forget()
+        if self.grab_window is not None:
+            if self.grab_opacity_slide.get() > 0:
+                self.grab_window.cv.pack_forget()
 
-        o_array = self.geometry().replace('x', '+').split('+')
-        array = [eval(item) for item in o_array]
-        if self.grab_window.x_min <= array[0] <= x_right or (
-                self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
-            if (self.grab_window.y_min <= array[1] <= y_bot) or (
-                    self.grab_window.y_min <= array[1] + array[3] <= y_bot):
-                if self.state() == 'withdrawn':
-                    self.hidden = True
-                else:
-                    self.hidden = False
-                    self.withdraw()
+            o_array = self.geometry().replace('x', '+').split('+')
+            array = [eval(item) for item in o_array]
+            if self.grab_window.x_min <= array[0] <= x_right or (
+                    self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
+                if (self.grab_window.y_min <= array[1] <= y_bot) or (
+                        self.grab_window.y_min <= array[1] + array[3] <= y_bot):
+                    if self.state() == 'withdrawn':
+                        self.hidden = True
+                    else:
+                        self.hidden = False
+                        self.withdraw()
         if self.text_window is not None and self.text_window.winfo_exists():
             # Check if left side or right side of window is between left/right bounds of grab window
             # format widthxheight+xcoord+ycoord
@@ -526,16 +546,17 @@ class App(tk.Toplevel):
         """
         Call from grab_window after done taking image. Makes all hidden windows visible again.
         """
-        if self.grab_opacity_slide.get() > 0:
-            self.grab_window.cv.pack()
-        if not self.hidden:
-            o_array = self.geometry().replace('x', '+').split('+')
-            array = [eval(item) for item in o_array]
-            if self.grab_window.x_min <= array[0] <= x_right or (
-                    self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
-                if (self.grab_window.y_min <= array[1] <= y_bot) or (
-                        self.grab_window.y_min <= array[1] + array[3] <= y_bot):
-                    self.deiconify()
+        if self.grab_window is not None:
+            if self.grab_opacity_slide.get() > 0:
+                self.grab_window.cv.pack()
+            if not self.hidden:
+                o_array = self.geometry().replace('x', '+').split('+')
+                array = [eval(item) for item in o_array]
+                if self.grab_window.x_min <= array[0] <= x_right or (
+                        self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
+                    if (self.grab_window.y_min <= array[1] <= y_bot) or (
+                            self.grab_window.y_min <= array[1] + array[3] <= y_bot):
+                        self.deiconify()
         if self.text_window is not None and self.text_window.winfo_exists():
             if not self.text_window.hidden:
                 o_array = self.text_window.geometry().replace('x', '+').split('+')
@@ -561,6 +582,13 @@ class App(tk.Toplevel):
         """
         self.grab_opacity = self.grab_opacity_slide.get()
         self.grab_window.attributes("-alpha", float(self.grab_opacity))
+
+    def update_text_size(self):
+        """
+        Change text size for grab window in real time with slider.
+        """
+        self.text_size = self.text_size_slide.get()
+        self.grab_window.update_text_size(self.text_size)
 
     def text_window_generate(self):
         """
@@ -607,17 +635,20 @@ class App(tk.Toplevel):
 
     def options_button_disable(self, boolean):
         """
-        Disable options menu, text window checkbox, opacity slider unless grab window exists.
+        Disable options menu, text window checkbox, opacity slider,
+        text size slider unless grab window exists.
         """
         if boolean is False:
             self.options_button.config(state='normal')
             self.window_checkbox.config(state='normal')
             self.grab_opacity_slide.config(state='normal')
+            self.text_size_slide.config(state='normal')
             self.invert_window_checkbox.config(state='normal')
         else:
             self.options_button.config(state='disabled')
             self.window_checkbox.config(state='disabled')
             self.grab_opacity_slide.config(state='disabled')
+            self.text_size_slide.config(state='disabled')
             self.invert_window_checkbox.config(state='disabled')
 
     def click_window(self, event):
@@ -658,9 +689,14 @@ class App(tk.Toplevel):
         self.overlay_window.destroy()
         self.grab_window = GrabWindow(stored_values, self)
         # Create thread for the image grabbing window loop.
-        self.t = Thread(target=GrabWindow.screen_grab_loop, args=(self.grab_window,))
+        self.t = Thread(target=GrabWindow.screen_grab_loop, args=(
+            self.grab_window,), daemon=True)
         if not self.t.is_alive():
             self.t.start()
+
+    def close_threads(self):
+        stop_threads_true()
+        self.master.destroy()
 
 
 class TextWindowHidden(tk.Toplevel):
@@ -955,6 +991,7 @@ class GrabWindow(tk.Toplevel):
         self.invert.set(self.master.invert_grab_window.get())
         self.bg_color = 'black'
         self.text_color = 'white'
+        self.text_size = self.master.text_size
 
         # Set window transparent and add a canvas, then use set_click_through to make canvas
         # not interactable
@@ -962,7 +999,12 @@ class GrabWindow(tk.Toplevel):
         self.attributes('-transparentcolor', 'white', '-topmost', True)
         self.config(bg='white')
         self.cv = tk.Canvas(self, bg=self.bg_color, highlightthickness=0, width=self.x_width, height=self.y_height)
-        self.cv_text = self.cv.create_text(self.x_width // 2, self.y_height // 2, text=" ", fill=self.text_color)
+        self.cv_text = self.cv.create_text(self.x_width // 2, self.y_height
+                                           // 2, text=" ",
+                                           fill=self.text_color,
+                                           font=("TkDefaultFont",
+                                                 int(self.text_size)))
+
         self.cv.pack()
         hwnd = self.cv.winfo_id()
         set_click_through(hwnd)
@@ -983,6 +1025,15 @@ class GrabWindow(tk.Toplevel):
         self.img = self.img_raw.copy()
         self.text = pt.image_to_string(self.img)
         GrabWindow.translate(self, None)
+
+    def update_text_size(self, size):
+        self.text_size = size
+        self.cv.delete(self.cv_text)
+        self.cv_text = self.cv.create_text(self.x_width // 2, self.y_height
+                                           // 2, text=" ",
+                                           fill=self.text_color,
+                                           font=("TkDefaultFont",
+                                                 int(self.text_size)))
 
     def refresh_color(self):
         if self.invert.get() is True:
@@ -1057,10 +1108,7 @@ class GrabWindow(tk.Toplevel):
     def screen_grab_loop(self):
         while stop_threads is False:
             try:
-                if not self.master.time_selection_entry.get().isdigit():
-                    sleep_time = int('5')
-                else:
-                    sleep_time = int(self.master.time_selection_entry.get())
+                sleep_time = float(self.master.time_selection_entry.get())
                 sleep(sleep_time)
                 # Use pillow to grab image in screen grab box
 
@@ -1096,9 +1144,11 @@ class GrabWindow(tk.Toplevel):
                 self.text = pt.image_to_string(self.img, lang=self.lang_string)
                 GrabWindow.translate(self, input_text)
             except RuntimeError:
-                break
+                continue
             except _tkinter.TclError:
-                break
+                continue
+            except ValueError:
+                continue
 
 
 class OptionsWindow(tk.Toplevel):
@@ -1118,6 +1168,8 @@ class OptionsWindow(tk.Toplevel):
         self.inversion_boolean_var.set(self.master.inversion_boolean)
         self.resize_boolean_var = tk.BooleanVar()
         self.resize_boolean_var.set(self.master.resize_boolean)
+        self.contrast_boolean_var = tk.BooleanVar()
+        self.contrast_boolean_var.set(self.master.contrast_boolean)
 
         # Current screen grab image and scroll bars
         self.img = self.master.grab_window.img
@@ -1191,6 +1243,29 @@ class OptionsWindow(tk.Toplevel):
         self.resize_input_slide.pack(side=tk.TOP, anchor=tk.E, pady=3)
         toggle_slider(self.resize_boolean_var.get(), self.resize_input_slide)
 
+        # Contrast
+        self.contrast_input_slide = ttk.Scale(slide_frame, from_=1, to=100,
+                                            orient='horizontal')
+        self.contrast_input_slide.set(self.master.contrast)
+        self.contrast_checkbox = ttk.Checkbutton(box_frame,
+                                               text=f"Contrast: {int(self.contrast_input_slide.get())}",
+                                               variable=self.contrast_boolean_var,
+                                               onvalue=True, offvalue=False,
+                                               width=16,
+                                               command=lambda: [
+                                                   self.refresh_image(),
+                                                   toggle_slider(
+                                                       self.contrast_boolean_var.get(),
+                                                       self.contrast_input_slide)])
+        self.contrast_checkbox.pack(side=tk.TOP, anchor=tk.W)
+        self.contrast_input_slide.config(
+            command=lambda x: [update_display(self.contrast_checkbox,
+                                              self.contrast_input_slide.get(),
+                                              tag="Contrast: "),
+                               self.refresh_image()])
+        self.contrast_input_slide.pack(side=tk.TOP, anchor=tk.E, pady=3)
+        toggle_slider(self.contrast_boolean_var.get(), self.contrast_input_slide)
+
         # Invert
         adjustment_frame2 = ttk.Frame(self)
         self.inversion_checkbox = ttk.Checkbutton(adjustment_frame2, text="Invert",
@@ -1224,6 +1299,8 @@ class OptionsWindow(tk.Toplevel):
 
         self.master.resize = self.resize_input_slide.get()
         self.master.resize_boolean = self.resize_boolean_var.get()
+        self.master.contrast = self.contrast_input_slide.get()
+        self.master.contrast_boolean = self.contrast_boolean_var.get()
 
         self.master.inversion_boolean = self.inversion_boolean_var.get()
 
@@ -1240,6 +1317,10 @@ class OptionsWindow(tk.Toplevel):
             self.img = self.img.resize((width, height))
             self.image_panel.config(height=self.img.size[1], width=self.img.size[0])
 
+        if self.contrast_boolean_var.get() is True:
+            self.img = ImageEnhance.Contrast(self.img).enhance(
+                self.contrast_input_slide.get())
+
         if self.thresholding_boolean_var.get() is True:
             self.img = self.img.convert("L")  # Grayscale
             # PIL thresholding: white if above threshold, black otherwise
@@ -1255,11 +1336,18 @@ class OptionsWindow(tk.Toplevel):
         self.image_panel.image = self.img  # Prevent garbage collection of image
 
 
-# TODO test with text of different sizes - works in english
-# TODO still didn't fix the persisting program bug (closing during the right time of the thread loop gets it stuck?)
 # TODO stop combobox arrow lighting up when not enabled - cannot cover with invisible widget
-# TODO stops working on non eng alphabet languages. seems related to tesseract portion not parsing non english letters
 # TODO fix lag on resize in options window
+# TODO fix scroll bar in options window
+# TODO typeahead in lang selection dropdown
+# TODO with text window open, close all windows and make new selection. pop
+#  text window back out if this happens - save setting despite disabled text
+#  window checkbox when no selection; if smaller retain same size if bigger
+#  grow
+# TODO build an executable
+# TODO update tesseract/pytesseract - fixes vertical text ie japanese - also
+#  check whether can do single chars or blank results in just language being
+#  displayed after update
 
 if __name__ == '__main__':
     update_lang_dict()
