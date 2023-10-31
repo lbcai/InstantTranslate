@@ -1,5 +1,5 @@
-# InstantTranslate
-Screengrabbing real time translator tool written in Python 3.8 with tkinter, Pillow, googletrans and pytesseract libraries.
+# <img src="icons/24.png?raw=true" alt="Instant noodles."> InstantTranslate
+Screengrabbing real time translator tool written in Python 3.8 with tkinter, Pillow, googletrans and pytesseract (Tesseract-OCR) libraries. Useful for translating materials in other languages quickly without having to rely on manual pasting into Google Translate or other services. Can be used to aide novice translators, to chat in a foreign language with others online, to read books and other written materials, to play foreign video games, or to watch media with foreign subtitles.
 
 ## Usage
 <p align="center" width="100%">
