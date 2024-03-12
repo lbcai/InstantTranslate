@@ -1,0 +1,6 @@
+creating .ico
+magick convert 16.png 32.png 48.png 128.png 256.png -colors 256 icon.ico
+
+building .exe
+place tesseract folder in a folder to avoid pyinstaller losing subfolder structure
+pyinstaller --onefile --icon=icons/icon.ico --add-data "icons/16.png;." --add-data "new/*;Tesseract-OCR/" main.pyw

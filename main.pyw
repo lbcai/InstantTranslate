@@ -17,11 +17,11 @@ from threading import Thread
 # for translation
 from googletrans import Translator, LANGUAGES
 
+import sys, os
+
 title_string = "InstantTranslate"
 # Flag for screen grab thread to stop after program closes.
 stop_threads = False
-# pytesseract requires tesseract exe, location provided for bundling with pyinstaller package
-pt.pytesseract.tesseract_cmd = r'Tesseract-OCR\tesseract.exe'
 
 # List of languages (capitalized) for use in main app window Combobox
 old_language_list = list(LANGUAGES.values())
@@ -141,6 +141,18 @@ language_map_pt_to_googletrans = {
 }
 
 
+def get_path(filename):
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, filename)
+    else:
+        return filename
+
+
+os.environ["TESSDATA_PREFIX"] = str(get_path(r'Tesseract-OCR\tessdata'))
+# pytesseract requires tesseract exe, location provided for bundling with pyinstaller package
+pt.pytesseract.tesseract_cmd = get_path(r'Tesseract-OCR\tesseract.exe')
+
+
 def update_lang_dict():
     j = 0
     for key in LANGUAGES:
@@ -196,7 +208,7 @@ def make_title_bar(self):
         close_button = ttk.Button(title_bar, text='X', width=1,
                                   command=self.reset_master_box)
 
-    icon = ImageTk.PhotoImage(Image.open(r"icons/16.png"))
+    icon = ImageTk.PhotoImage(Image.open(get_path("16.png")))
     icon_label = ttk.Label(title_bar, image=icon)
     icon_label.image = icon
     window_title = ttk.Label(title_bar, text=" " + title_string)
@@ -312,7 +324,7 @@ class Root(ThemedTk):
         ThemedTk.__init__(self, theme='equilux', background=True, toplevel=True)
         self.attributes('-alpha', 0.0)
         self.title(title_string)
-        self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(file=r"icons/16.png"))
+        self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(file=get_path("16.png")))
         self.bind("<Map>", lambda event: Root.on_root_deiconify(self, event))
         self.bind("<Unmap>", lambda event: Root.on_root_iconify(self, event))
         self.app = App(self)
@@ -356,7 +368,7 @@ class App(tk.Toplevel):
         self.overlay_window = None
         # Translate area that will remain on screen
         self.grab_window = None
-        self.grab_opacity = '0.5'
+        self.grab_opacity = '0.1'
         self.text_size = '9'
         # Options window for user to adjust image settings for text reading
         self.options_window = None
@@ -373,7 +385,7 @@ class App(tk.Toplevel):
         self.resize = '1'
         self.contrast = '1'
         self.text_window_boolean = tk.BooleanVar()
-        self.text_window_boolean.set(False)
+        self.text_window_boolean.set(True)
         self.src_lang = tk.StringVar(self)
         self.src_lang.set('Auto')
         self.src_lang_boolean = tk.BooleanVar()
@@ -510,10 +522,11 @@ class App(tk.Toplevel):
 
             o_array = self.geometry().replace('x', '+').split('+')
             array = [eval(item) for item in o_array]
-            if self.grab_window.x_min <= array[0] <= x_right or (
+            if (self.grab_window.x_min <= array[2] <= x_right) or (
                     self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
-                if (self.grab_window.y_min <= array[1] <= y_bot) or (
-                        self.grab_window.y_min <= array[1] + array[3] <= y_bot):
+                if (self.grab_window.y_min <= array[3] <= y_bot) or (
+                        self.grab_window.y_min <= (array[1] + array[3]) <=
+                                                   y_bot):
                     if self.state() == 'withdrawn':
                         self.hidden = True
                     else:
@@ -524,10 +537,12 @@ class App(tk.Toplevel):
             # format widthxheight+xcoord+ycoord
             o_array = self.text_window.geometry().replace('x', '+').split('+')
             array = [eval(item) for item in o_array]
-            if self.grab_window.x_min <= array[0] <= x_right or (
-                    self.grab_window.x_min <= (array[0] + array[2]) <= x_right):
-                if (self.grab_window.y_min <= array[1] <= y_bot) or (
-                        self.grab_window.y_min <= array[1] + array[3] <= y_bot):
+            if (self.grab_window.x_min <= array[2] <= x_right) or (
+                    self.grab_window.x_min <= (array[2] + array[0]) <=
+                    x_right):
+                if (self.grab_window.y_min <= array[3] <= y_bot) or (
+                        self.grab_window.y_min <= (array[3] + array[1]) <=
+                                                   y_bot):
                     if self.text_window.state() == 'withdrawn':
                         self.text_window.hidden = True
                     else:
@@ -693,6 +708,7 @@ class App(tk.Toplevel):
             self.grab_window,), daemon=True)
         if not self.t.is_alive():
             self.t.start()
+        self.text_window_generate()
 
     def close_threads(self):
         stop_threads_true()
@@ -707,7 +723,8 @@ class TextWindowHidden(tk.Toplevel):
     def __init__(self, master):
         tk.Toplevel.__init__(self, master)
         self.attributes('-alpha', 0.0)
-        self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(file=r"icons/16.png"))
+        self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(
+            file=get_path("16.png")))
         self.bind("<Unmap>", lambda event: self.on_iconify(event))
         self.bind("<Destroy>", lambda event: self.on_destroy(event))
         self.bind("<FocusIn>", lambda event: self.on_deiconify(event))
@@ -961,8 +978,8 @@ class OverlayWindow(tk.Toplevel):
         Create window for screenshot location. Close overlay window. Resize text window if option is up.
         """
         App.create_grab_window(self.master, self.stored_values)
-        if self.master.text_window is not None:
-            self.master.text_window_generate()
+        # if self.master.text_window is not None:
+        #     self.master.text_window_generate()
 
 
 class GrabWindow(tk.Toplevel):

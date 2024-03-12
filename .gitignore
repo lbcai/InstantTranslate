@@ -1,6 +1,7 @@
 /.idea
+/new
 /Tesseract-OCR
 __pycache__/
 build/
-dist/
 main.spec
+/dist
