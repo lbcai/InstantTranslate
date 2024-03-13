@@ -1,6 +1,16 @@
 # <img src="icons/24.png?raw=true" alt="Instant noodles."> InstantTranslate
 Screengrabbing real time translator tool written in Python 3.8 with tkinter, Pillow, googletrans and pytesseract (Tesseract-OCR) libraries. Useful for translating materials in other languages quickly without having to rely on manual pasting into Google Translate or other services. Can be used to aid novice translators, to chat in a foreign language with others online, to read books and other written materials, to play foreign video games, or to watch media with foreign subtitles.
 
+## Setup
+<p align="center" width="100%">
+  <img src="icons/download.PNG?raw=true" alt="Image of .exe.">
+</p>
+Simply download the standalone .exe file from the releases section. Double
+ click to run. The application takes some time to start up because it comes
+  bundled with Tesseract-OCR and must unpack training data. A future
+   optimization may be to allow persistent temporary files so unpacking only
+    has to happen once, or whenever the temporary files are removed.
+
 ## Usage
 <p align="center" width="100%">
   <img src="icons/mainmenu.PNG?raw=true" alt="Main menu.">

@@ -1,6 +1,6 @@
 creating .ico
-magick convert 16.png 32.png 48.png 128.png 256.png -colors 256 icon.ico
+magick convert 16.png 20.png 24.png 30.png 32.png 36.png 40.png 48.png 60.png 64.png 72.png 80.png 96.png 128.png 256.png icon_magick.ico
 
 building .exe
 place tesseract folder in a folder to avoid pyinstaller losing subfolder structure
-pyinstaller --onefile --icon=icons/icon.ico --add-data "icons/16.png;." --add-data "new/*;Tesseract-OCR/" main.pyw
+pyinstaller --onefile --icon=icons/icon_magick.ico --add-data "icons/20.png;." --add-data "icons/24.png;." --add-data "new/*;Tesseract-OCR/" main.pyw

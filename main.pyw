@@ -208,10 +208,10 @@ def make_title_bar(self):
         close_button = ttk.Button(title_bar, text='X', width=1,
                                   command=self.reset_master_box)
 
-    icon = ImageTk.PhotoImage(Image.open(get_path("16.png")))
+    icon = ImageTk.PhotoImage(Image.open(get_path("20.png")))
     icon_label = ttk.Label(title_bar, image=icon)
     icon_label.image = icon
-    window_title = ttk.Label(title_bar, text=" " + title_string)
+    window_title = ttk.Label(title_bar, text="" + title_string)
     title_bar.pack(expand=False, fill=tk.X, side=tk.TOP)
     close_button.pack(side=tk.RIGHT)
 
@@ -324,7 +324,8 @@ class Root(ThemedTk):
         ThemedTk.__init__(self, theme='equilux', background=True, toplevel=True)
         self.attributes('-alpha', 0.0)
         self.title(title_string)
-        self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(file=get_path("16.png")))
+        self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(
+            file=get_path("24.png")))
         self.bind("<Map>", lambda event: Root.on_root_deiconify(self, event))
         self.bind("<Unmap>", lambda event: Root.on_root_iconify(self, event))
         self.app = App(self)
@@ -724,7 +725,7 @@ class TextWindowHidden(tk.Toplevel):
         tk.Toplevel.__init__(self, master)
         self.attributes('-alpha', 0.0)
         self.tk.call('wm', 'iconphoto', self._w, tk.PhotoImage(
-            file=get_path("16.png")))
+            file=get_path("24.png")))
         self.bind("<Unmap>", lambda event: self.on_iconify(event))
         self.bind("<Destroy>", lambda event: self.on_destroy(event))
         self.bind("<FocusIn>", lambda event: self.on_deiconify(event))
